@@ -5,6 +5,48 @@
     margin: 10mm;
     size: A4 landscape;
   }
+
+  /* Allow the table wrapper to show all columns when printing */
+  .print\:overflow-visible {
+    overflow: visible !important;
+  }
+
+  /* Table layout: let the browser size columns to fit naturally */
+  table {
+    table-layout: auto !important;
+    width: 100% !important;
+    font-size: 8pt !important;
+  }
+
+  /* Prevent individual table rows from splitting across pages */
+  tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Section header rows: keep them with the next row */
+  tr.section-header {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* Don't orphan the last row of a section */
+  tr:last-child {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* Ensure the certificate card shadow/border doesn't clip anything */
+  .print\:shadow-none {
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  /* Shrink sample result cells to fit many columns */
+  td input, th {
+    min-width: 0 !important;
+    width: auto !important;
+  }
 }
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";

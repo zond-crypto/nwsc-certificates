@@ -27,6 +27,19 @@ function generateNewCertificate(count: number): Certificate {
   };
 }
 
+/** Ensure every data row has exactly one results entry per sample (repairs old saves). */
+function normaliseCert(cert: Certificate): Certificate {
+  const sampleCount = cert.samples.length;
+  return {
+    ...cert,
+    tableData: cert.tableData.map(row => {
+      if (row.section) return { ...row, results: [] };
+      const results = Array.from({ length: sampleCount }, (_, i) => row.results[i] ?? '');
+      return { ...row, results };
+    })
+  };
+}
+
 export default function App() {
   const [savedCerts, setSavedCerts] = useState<Certificate[]>([]);
   const [currentCert, setCurrentCert] = useState<Certificate>(generateNewCertificate(0));
@@ -36,7 +49,7 @@ export default function App() {
     try {
       const stored = localStorage.getItem("nkana_certs");
       if (stored) {
-        const parsed = JSON.parse(stored);
+        const parsed: Certificate[] = JSON.parse(stored).map(normaliseCert);
         setSavedCerts(parsed);
         if (parsed.length > 0) {
           setCurrentCert(generateNewCertificate(parsed.length));
@@ -78,7 +91,7 @@ export default function App() {
   const handleLoad = (id: string) => {
     const cert = savedCerts.find(c => c.id === id);
     if (cert) {
-      setCurrentCert({ ...cert });
+      setCurrentCert(normaliseCert({ ...cert }));
       setActiveTab("editor");
       toast.success("Certificate loaded!");
     }
@@ -105,22 +118,60 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#f0f4f9] font-sans text-[#1a2635]">
       {/* App Bar */}
-      <div className="bg-[#003d7a] text-white px-6 py-3 flex items-center justify-between sticky top-0 z-50 shadow-md print:hidden">
-        <div className="text-sm font-bold tracking-wider opacity-90 flex items-center gap-2">
-          <span className="text-xl">⚗️</span> NKANA WATER — Certificate of Analysis System
+      <header className="bg-[#003d7a] text-white sticky top-0 z-50 shadow-lg print:hidden">
+        {/* Top accent stripe */}
+        <div className="h-0.5 bg-gradient-to-r from-[#e8b400] via-[#ffd700] to-[#e8b400]" />
+
+        <div className="px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3">
+          {/* Brand */}
+          <div className="flex items-center gap-3 min-w-0">
+            <img
+              src="/logo.png"
+              alt="NWSC Logo"
+              className="w-9 h-9 object-contain shrink-0 rounded-full bg-white p-0.5 shadow"
+            />
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold tracking-[0.15em] text-[#e8b400] uppercase leading-none">
+                NKANA WATER &amp; SEWERAGE CO.
+              </div>
+              <div className="text-[13px] sm:text-sm font-bold tracking-wide text-white/90 truncate">
+                Certificate of Analysis System
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleNew}
+              className="text-white hover:bg-white/20 border border-white/20 h-8 px-2.5 text-xs"
+            >
+              <Plus className="w-3.5 h-3.5 sm:mr-1" />
+              <span className="hidden sm:inline">New</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSave}
+              className="text-white hover:bg-white/20 border border-white/20 h-8 px-2.5 text-xs"
+            >
+              <Save className="w-3.5 h-3.5 sm:mr-1" />
+              <span className="hidden sm:inline">Save</span>
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => window.print()}
+              className="bg-[#e8b400] text-[#1a1a00] hover:bg-[#d4a200] border-none h-8 px-2.5 text-xs font-semibold"
+            >
+              <Printer className="w-3.5 h-3.5 sm:mr-1" />
+              <span className="hidden sm:inline">PDF</span>
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={handleNew} className="text-white hover:bg-white/20 border border-white/25">
-            <Plus className="w-4 h-4 mr-1" /> New
-          </Button>
-          <Button variant="ghost" size="sm" onClick={handleSave} className="text-white hover:bg-white/20 border border-white/25">
-            <Save className="w-4 h-4 mr-1" /> Save
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => window.print()} className="bg-[#e8b400] text-black hover:bg-[#d4a200] border-none">
-            <Printer className="w-4 h-4 mr-1" /> PDF
-          </Button>
-        </div>
-      </div>
+      </header>
 
       <div className="max-w-[1200px] mx-auto p-4 md:p-6 pb-24 print:p-0 print:max-w-none">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">

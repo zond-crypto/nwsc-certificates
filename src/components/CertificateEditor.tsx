@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { Certificate, Parameter } from '../types';
 import { DEFAULT_PARAMS } from '../constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, X, Printer, Download, Save, FileDown } from 'lucide-react';
+import { Plus, X, Printer, Download, Save, FileDown, ChevronLeft, ChevronRight, GripHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -19,81 +19,149 @@ interface Props {
 export function CertificateEditor({ certificate, setCertificate, onSave }: Props) {
   const [rowToDelete, setRowToDelete] = useState<number | null>(null);
 
-  const handleMetaChange = (field: keyof Certificate, value: string) => {
+  // ── Horizontal scroll / drag-to-scroll ─────────────────────────────────
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragScrollLeft = useRef(0);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [isDraggingState, setIsDraggingState] = useState(false);
+
+  const updateScrollButtons = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateScrollButtons();
+    el.addEventListener('scroll', updateScrollButtons, { passive: true });
+    const ro = new ResizeObserver(updateScrollButtons);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', updateScrollButtons);
+      ro.disconnect();
+    };
+  }, [updateScrollButtons, certificate.samples.length]);
+
+  const onMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // Only drag on the table area itself, not on inputs/buttons
+    if ((e.target as HTMLElement).closest('input, button, select, a')) return;
+    isDragging.current = true;
+    dragStartX.current = e.pageX - el.offsetLeft;
+    dragScrollLeft.current = el.scrollLeft;
+    setIsDraggingState(true);
+    e.preventDefault();
+  }, []);
+
+  const onMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging.current || !scrollRef.current) return;
+    const x = e.pageX - scrollRef.current.offsetLeft;
+    const walk = (x - dragStartX.current) * 1.5;
+    scrollRef.current.scrollLeft = dragScrollLeft.current - walk;
+  }, []);
+
+  const stopDrag = useCallback(() => {
+    isDragging.current = false;
+    setIsDraggingState(false);
+  }, []);
+
+  const scrollBy = useCallback((dir: 'left' | 'right') => {
+    scrollRef.current?.scrollBy({ left: dir === 'right' ? 200 : -200, behavior: 'smooth' });
+  }, []);
+  // ────────────────────────────────────────────────────────────────────────
+
+  const handleMetaChange = useCallback((field: keyof Certificate, value: string) => {
     setCertificate(prev => ({ ...prev, [field]: value }));
-  };
+  }, [setCertificate]);
 
   const addSample = () => {
-    const newSample = `Sample ${certificate.samples.length + 1}`;
-    setCertificate(prev => ({
-      ...prev,
-      samples: [...prev.samples, newSample],
-      tableData: prev.tableData.map(row => ({
-        ...row,
-        results: row.section ? row.results : [...row.results, ""]
-      }))
-    }));
+    setCertificate(prev => {
+      const newSample = `Sample ${prev.samples.length + 1}`;
+      return {
+        ...prev,
+        samples: [...prev.samples, newSample],
+        tableData: prev.tableData.map(row => ({
+          ...row,
+          // Always rebuild results to match new sample count, padding if necessary
+          results: row.section
+            ? []
+            : [
+                ...Array.from({ length: prev.samples.length }, (_, i) =>
+                  row.results[i] ?? ""
+                ),
+                ""
+              ]
+        }))
+      };
+    });
   };
 
-  const updateSampleName = (idx: number, value: string) => {
+  const updateSampleName = useCallback((idx: number, value: string) => {
     setCertificate(prev => {
       const newSamples = [...prev.samples];
       newSamples[idx] = value;
       return { ...prev, samples: newSamples };
     });
-  };
+  }, [setCertificate]);
 
   const removeSample = (idx: number) => {
     if (certificate.samples.length <= 1) return;
-    setCertificate(prev => {
-      const newSamples = [...prev.samples];
-      newSamples.splice(idx, 1);
-      return {
-        ...prev,
-        samples: newSamples,
-        tableData: prev.tableData.map(row => {
-          if (row.section) return row;
-          const newResults = [...row.results];
-          newResults.splice(idx, 1);
-          return { ...row, results: newResults };
-        })
-      };
-    });
+    setCertificate(prev => ({
+      ...prev,
+      samples: prev.samples.filter((_, i) => i !== idx),
+      tableData: prev.tableData.map(row => {
+        if (row.section) return { ...row, results: [] };
+        return { ...row, results: row.results.filter((_, i) => i !== idx) };
+      })
+    }));
   };
 
-  const updateResult = (rowIdx: number, sampleIdx: number, value: string) => {
+  const updateResult = useCallback((rowIdx: number, sampleIdx: number, value: string) => {
     setCertificate(prev => {
-      const newData = [...prev.tableData];
-      newData[rowIdx].results[sampleIdx] = value;
+      const newData = prev.tableData.map((row, i) => {
+        if (i !== rowIdx) return row;
+        const newResults = [...row.results];
+        newResults[sampleIdx] = value;
+        return { ...row, results: newResults };
+      });
       return { ...prev, tableData: newData };
     });
-  };
+  }, [setCertificate]);
 
-  const updateRow = (rowIdx: number, field: keyof Parameter, value: string) => {
+  const updateRow = useCallback((rowIdx: number, field: keyof Parameter, value: string) => {
     setCertificate(prev => {
-      const newData = [...prev.tableData];
-      (newData[rowIdx] as any)[field] = value;
-      
-      if (field === 'limit') {
-        const limit = value;
-        if (limit.includes("–")) {
-          const parts = limit.split("–").map(s => s.trim());
-          newData[rowIdx].numeric_limit_low = parseFloat(parts[0]);
-          newData[rowIdx].numeric_limit_high = parseFloat(parts[1]);
-        } else if (limit.startsWith("≤")) {
-          newData[rowIdx].numeric_limit_high = parseFloat(limit.substring(1));
-          newData[rowIdx].numeric_limit_low = undefined;
-        } else if (limit.startsWith("<")) {
-          newData[rowIdx].numeric_limit_high = parseFloat(limit.substring(1));
-          newData[rowIdx].numeric_limit_low = undefined;
-        } else {
-          newData[rowIdx].numeric_limit_high = parseFloat(limit);
-          newData[rowIdx].numeric_limit_low = undefined;
+      const newData = prev.tableData.map((row, i) => {
+        if (i !== rowIdx) return row;
+        const updated = { ...row, [field]: value };
+        if (field === 'limit') {
+          const limit = value;
+          if (limit.includes("–")) {
+            const parts = limit.split("–").map(s => s.trim());
+            updated.numeric_limit_low = parseFloat(parts[0]);
+            updated.numeric_limit_high = parseFloat(parts[1]);
+          } else if (limit.startsWith("≤")) {
+            updated.numeric_limit_high = parseFloat(limit.substring(1));
+            updated.numeric_limit_low = undefined;
+          } else if (limit.startsWith("<")) {
+            updated.numeric_limit_high = parseFloat(limit.substring(1));
+            updated.numeric_limit_low = undefined;
+          } else {
+            updated.numeric_limit_high = parseFloat(limit);
+            updated.numeric_limit_low = undefined;
+          }
         }
-      }
+        return updated;
+      });
       return { ...prev, tableData: newData };
     });
-  };
+  }, [setCertificate]);
 
   const addParameter = () => {
     const newRow: Parameter = {
@@ -109,29 +177,27 @@ export function CertificateEditor({ certificate, setCertificate, onSave }: Props
     }));
   };
 
-  const confirmRemoveRow = (idx: number) => {
+  const confirmRemoveRow = useCallback((idx: number) => {
     setRowToDelete(idx);
-  };
+  }, []);
 
-  const executeRemoveRow = () => {
+  const executeRemoveRow = useCallback(() => {
     if (rowToDelete === null) return;
     setCertificate(prev => {
-      const newData = [...prev.tableData];
-      newData.splice(rowToDelete, 1);
+      const newData = prev.tableData.filter((_, i) => i !== rowToDelete);
       return { ...prev, tableData: newData };
     });
     setRowToDelete(null);
-  };
+  }, [rowToDelete, setCertificate]);
 
-  const cancelRemoveRow = () => {
+  const cancelRemoveRow = useCallback(() => {
     setRowToDelete(null);
-  };
+  }, []);
 
-  const computeStatus = (row: Parameter, result: string) => {
+  const computeStatus = useCallback((row: Parameter, result: string) => {
     if (!result || result.trim() === "" || result === "—") return "NA";
     const val = result.trim().toUpperCase();
     if (val === "ABSENT" || val === "ND" || val === "NIL") {
-      if (row.bio || (row.numeric_limit_high !== undefined && row.numeric_limit_high === 0)) return "PASS";
       return "PASS";
     }
     if (val === "PRESENT" || val === "T.N.T.C" || val === "TNTC") return "FAIL";
@@ -140,9 +206,9 @@ export function CertificateEditor({ certificate, setCertificate, onSave }: Props
     if (row.numeric_limit_low !== undefined && num < row.numeric_limit_low) return "FAIL";
     if (row.numeric_limit_high !== undefined && num > row.numeric_limit_high) return "FAIL";
     return "PASS";
-  };
+  }, []);
 
-  const getLimitHeader = () => {
+  const limitHeader = React.useMemo(() => {
     const type = certificate.sampleType.toLowerCase();
     if (type.includes('effluent') || type.includes('waste')) {
       return 'ZEMA LIMITS';
@@ -151,9 +217,9 @@ export function CertificateEditor({ certificate, setCertificate, onSave }: Props
       return 'ZABS Limits';
     }
     return 'WHO/ZS Limit';
-  };
+  }, [certificate.sampleType]);
 
-  const getOverallStatus = () => {
+  const overallStatus = React.useMemo(() => {
     let hasAnyResult = false;
     let hasFail = false;
     certificate.tableData.forEach(row => {
@@ -170,9 +236,7 @@ export function CertificateEditor({ certificate, setCertificate, onSave }: Props
     if (!hasAnyResult) return { label: "PENDING", class: "bg-gray-200 text-gray-800" };
     if (hasFail) return { label: "✗ FAIL", class: "bg-red-100 text-red-800" };
     return { label: "✓ PASS", class: "bg-green-100 text-green-800" };
-  };
-
-  const overallStatus = getOverallStatus();
+  }, [certificate.tableData, computeStatus]);
 
   const exportCSV = () => {
     let csv = `Certificate No,Client,Date Sampled,Date Reported,Sample Type,Location\n`;
@@ -458,34 +522,75 @@ export function CertificateEditor({ certificate, setCertificate, onSave }: Props
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 print:shadow-none print:border-none">
       {/* Header */}
-      <div className="bg-[#003d7a] text-white flex flex-col md:flex-row items-center print:flex-row print:bg-white print:text-black print:border-b-2 print:border-[#003d7a]">
-        <div className="p-4 bg-white flex items-center justify-center print:p-2">
-          <NkanaLogo className="w-20 h-20" />
-        </div>
-        <div className="p-4 text-center flex-1 print:p-2">
-          <div className="text-sm font-bold tracking-wider uppercase">NKANA WATER SUPPLY AND SANITATION COMPANY</div>
-          <div className="text-[10px] opacity-75 my-1 leading-relaxed print:text-black">
-            Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia.<br/>
-            Corporate Head Office Tel: +260 212 222488, 221099, 0971 223 458 | Fax: +260 212 222490<br/>
-            Email: headoffice@nwsc.com.zm | www.nwsc.zm
+      <div className="bg-gradient-to-br from-[#002050] via-[#003d7a] to-[#004a94] text-white border-b-[3px] border-[#e8b400] print:border-b-2 print:bg-white print:text-black">
+        <div className="flex flex-col sm:flex-row items-center sm:items-stretch">
+          {/* Logo block */}
+          <div className="pt-5 pb-3 sm:py-5 px-5 flex items-center justify-center shrink-0">
+            <div className="bg-white rounded-2xl p-2.5 shadow-md print:shadow-none print:rounded-none print:p-0">
+              <NkanaLogo className="w-20 h-20 sm:w-[88px] sm:h-[88px] object-contain print:w-16 print:h-16" />
+            </div>
           </div>
-          <div className="text-[11px] font-semibold tracking-widest text-[#e8b400] mt-2 print:text-black">SAFETY HEALTH ENVIRONMENT AND QUALITY DEPARTMENT</div>
-          <div className="font-serif text-xl font-bold tracking-wide mt-1">WATER ANALYSIS CERTIFICATE</div>
-        </div>
-        <div className="p-4 text-center border-l border-white/15 print:border-black/15 print:p-2">
-          <div className="text-[9px] tracking-widest opacity-65 uppercase">Cert No.</div>
-          <input 
-            className="bg-transparent border-none text-[#e8b400] print:text-black font-mono text-sm w-24 text-center outline-none focus:ring-1 focus:ring-white/50 rounded"
-            value={certificate.certNumber}
-            onChange={e => handleMetaChange('certNumber', e.target.value)}
-            placeholder="WAC-001"
-          />
-          {overallStatus.label !== "PENDING" && (
-            <div className="mt-2">
-              <div className="text-[9px] tracking-widest opacity-65 uppercase">Status</div>
-              <div className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase mt-1 ${overallStatus.class}`}>
-                {overallStatus.label}
+
+          {/* Title block */}
+          <div className="flex-1 min-w-0 px-4 sm:px-0 pb-5 sm:py-5 sm:pr-5 text-center sm:text-left flex flex-col justify-center">
+            <h1 className="text-base sm:text-xl md:text-2xl font-black tracking-wider uppercase leading-tight text-white print:text-black">
+              NKANA WATER SUPPLY AND SANITATION COMPANY
+            </h1>
+            <div className="text-[11px] text-blue-200/80 leading-relaxed mt-1 print:text-gray-700">
+              Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia.<br/>
+              Tel: +260 212 222488 / 221099 / 0971 223 458 &nbsp;|&nbsp; Fax: +260 212 222490<br/>
+              <a href="mailto:headoffice@nwsc.com.zm" className="hover:text-white underline print:text-black">headoffice@nwsc.com.zm</a>
+              {" | "}
+              <a href="http://www.nwsc.zm" target="_blank" rel="noreferrer" className="hover:text-white underline print:text-black">www.nwsc.zm</a>
+            </div>
+            <div className="mt-2.5 flex flex-col sm:flex-row sm:items-center gap-2">
+              <span className="inline-flex items-center self-center sm:self-auto px-2.5 py-1 rounded-md border border-[#e8b400]/60 bg-[#e8b400]/10 text-[#e8b400] text-[10px] font-bold tracking-widest uppercase print:border-gray-400 print:bg-transparent print:text-gray-700">
+                SHEQ DEPARTMENT
+              </span>
+              <span className="text-lg sm:text-xl md:text-2xl font-bold tracking-widest text-white/95 print:text-black">
+                WATER ANALYSIS CERTIFICATE
+              </span>
+            </div>
+          </div>
+
+          {/* Cert no. / status side column — desktop */}
+          <div className="hidden sm:flex p-5 flex-col items-end justify-center border-l border-white/10 shrink-0 print:border-none print:p-4">
+            <div className="bg-white/10 p-4 rounded-xl border border-white/15 shadow-inner print:bg-transparent print:border-none print:p-0 print:shadow-none min-w-[150px]">
+              <div className="flex flex-col items-end">
+                <div className="text-[10px] tracking-widest text-blue-200/80 uppercase font-semibold mb-0.5 print:text-gray-500">Certificate No.</div>
+                <input
+                  className="bg-transparent border-none text-[#e8b400] text-lg font-bold font-mono text-right w-full outline-none focus:ring-2 focus:ring-[#e8b400]/50 rounded transition-all print:text-black print:placeholder-gray-300"
+                  value={certificate.certNumber}
+                  onChange={e => handleMetaChange('certNumber', e.target.value)}
+                  placeholder="WAC-001"
+                />
               </div>
+              {overallStatus.label !== "PENDING" && (
+                <div className="mt-3 pt-3 border-t border-white/15 print:border-none flex flex-col items-end">
+                  <div className="text-[10px] tracking-widest text-blue-200/80 uppercase font-semibold mb-1 print:text-gray-500">Status</div>
+                  <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide uppercase border print:border-none ${overallStatus.label.includes('PASS') ? 'bg-green-500/20 text-green-100 border-green-500/50 print:text-green-800' : 'bg-red-500/20 text-red-100 border-red-500/50 print:text-red-800'}`}>
+                    {overallStatus.label}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile cert-number row */}
+        <div className="flex sm:hidden items-center justify-between px-4 pb-3 gap-4 print:hidden">
+          <div>
+            <div className="text-[10px] tracking-widest text-blue-200/80 uppercase font-semibold mb-0.5">Certificate No.</div>
+            <input
+              className="bg-transparent border-none text-[#e8b400] text-base font-bold font-mono outline-none focus:ring-2 focus:ring-[#e8b400]/50 rounded transition-all"
+              value={certificate.certNumber}
+              onChange={e => handleMetaChange('certNumber', e.target.value)}
+              placeholder="WAC-001"
+            />
+          </div>
+          {overallStatus.label !== "PENDING" && (
+            <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide uppercase ${overallStatus.label.includes('PASS') ? 'bg-green-500/20 text-green-100 border border-green-500/50' : 'bg-red-500/20 text-red-100 border border-red-500/50'}`}>
+              {overallStatus.label}
             </div>
           )}
         </div>
@@ -554,14 +659,53 @@ export function CertificateEditor({ certificate, setCertificate, onSave }: Props
           </Button>
         </div>
         
-        <div className="overflow-x-auto print:overflow-visible">
-          <table className="w-full border-collapse text-xs print:text-[9px]">
+        {/* scroll affordance: left arrow, drag-scroll table, right arrow */}
+        <div className="relative group">
+          {/* Left arrow */}
+          <button
+            aria-label="Scroll left"
+            onClick={() => scrollBy('left')}
+            className={`absolute left-0 top-0 bottom-0 z-30 flex items-center justify-center w-10 bg-gradient-to-r from-white/90 via-white/40 to-transparent text-[#003d7a] transition-opacity duration-300 print:hidden ${
+              canScrollLeft ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+          >
+            <div className="bg-white rounded-full p-1 shadow-md border border-gray-200">
+              <ChevronLeft className="w-5 h-5" />
+            </div>
+          </button>
+
+          {/* Right arrow */}
+          <button
+            aria-label="Scroll right"
+            onClick={() => scrollBy('right')}
+            className={`absolute right-0 top-0 bottom-0 z-30 flex items-center justify-center w-10 bg-gradient-to-l from-white/90 via-white/40 to-transparent text-[#003d7a] transition-opacity duration-300 print:hidden ${
+              canScrollRight ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
+          >
+            <div className="bg-white rounded-full p-1 shadow-md border border-gray-200">
+              <ChevronRight className="w-5 h-5" />
+            </div>
+          </button>
+
+          {/* Drag-to-scroll table wrapper */}
+          <div
+            ref={scrollRef}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={stopDrag}
+            onMouseLeave={stopDrag}
+            className={`overflow-x-auto print:overflow-visible transition-all duration-200 ${
+              isDraggingState ? 'cursor-grabbing scale-[0.998]' : (canScrollRight || canScrollLeft) ? 'cursor-grab' : ''
+            }`}
+          >
+            {/* Table remains the same internal structure */}
+          <table className="w-full min-w-max border-collapse text-xs print:text-[9px]">
             <thead>
               <tr>
                 <th className="sticky print:static left-0 z-20 print:z-auto bg-[#1a5099] text-white p-2 text-left text-[10px] print:text-[8px] font-bold tracking-wider uppercase border-b border-r border-white/20 print:bg-gray-100 print:text-black print:border-gray-300 w-8 print:w-auto print:p-1">#</th>
                 <th className="sticky print:static left-8 z-20 print:z-auto bg-[#1a5099] text-white p-2 text-left text-[10px] print:text-[8px] font-bold tracking-wider uppercase border-b border-r border-white/20 print:bg-gray-100 print:text-black print:border-gray-300 w-[150px] print:w-auto print:p-1">Parameter</th>
                 <th className="sticky print:static left-[182px] z-20 print:z-auto bg-[#1a5099] text-white p-2 text-left text-[10px] print:text-[8px] font-bold tracking-wider uppercase border-b border-r border-white/20 print:bg-gray-100 print:text-black print:border-gray-300 w-16 print:w-auto print:p-1">Unit</th>
-                <th className="sticky print:static left-[246px] z-20 print:z-auto bg-[#1a5099] text-white p-2 text-left text-[10px] print:text-[8px] font-bold tracking-wider uppercase border-b border-r border-white/20 print:bg-gray-100 print:text-black print:border-gray-300 w-24 print:w-auto print:p-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] print:shadow-none">{getLimitHeader()}</th>
+                <th className="sticky print:static left-[246px] z-20 print:z-auto bg-[#1a5099] text-white p-2 text-left text-[10px] print:text-[8px] font-bold tracking-wider uppercase border-b border-r border-white/20 print:bg-gray-100 print:text-black print:border-gray-300 w-24 print:w-auto print:p-1 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.3)] print:shadow-none">{limitHeader}</th>
                 
                 {certificate.samples.map((sample, idx) => (
                   <th key={idx} className="bg-[#1a5099] text-white p-1.5 text-center text-[10px] print:text-[8px] font-bold tracking-wider uppercase border-b border-r border-white/20 print:bg-gray-100 print:text-black print:border-gray-300 w-24 print:w-auto print:p-1">
@@ -572,54 +716,47 @@ export function CertificateEditor({ certificate, setCertificate, onSave }: Props
               </tr>
             </thead>
             <tbody>
-              {certificate.tableData.map((row, i) => {
-                if (row.section) {
+              {(() => {
+                let currentParamNum = 0;
+                return certificate.tableData.map((row, i) => {
+                  const isSection = !!row.section;
+                  if (isSection) {
+                    return (
+                      <tr key={row.id || i} className="section-header bg-[#003d7a] text-white text-[10px] print:text-[9px] font-bold tracking-widest uppercase print:bg-gray-200 print:text-black">
+                        <td colSpan={5 + certificate.samples.length} className="p-1.5 px-2 sticky print:static left-0 z-10 print:z-auto bg-[#003d7a] print:bg-gray-200">{row.section}</td>
+                      </tr>
+                    );
+                  }
+
+                  const rowNum = ++currentParamNum;
+
                   return (
-                    <tr key={i} className="bg-[#003d7a] text-white text-[10px] print:text-[9px] font-bold tracking-widest uppercase print:bg-gray-200 print:text-black">
-                      <td colSpan={5 + certificate.samples.length} className="p-1.5 px-2 sticky print:static left-0 z-10 print:z-auto">{row.section}</td>
-                    </tr>
+                    <ParameterRow
+                      key={row.id || i}
+                      row={row}
+                      idx={i}
+                      rowNum={rowNum}
+                      sampleCount={certificate.samples.length}
+                      updateRow={updateRow}
+                      updateResult={updateResult}
+                      confirmRemoveRow={confirmRemoveRow}
+                    />
                   );
-                }
-
-                const rowNum = certificate.tableData.slice(0, i).filter(r => !r.section).length + 1;
-
-                return (
-                  <tr key={i} className="hover:bg-blue-50 even:bg-gray-50 bg-white print:even:bg-transparent border-b border-gray-200">
-                    <td className="sticky print:static left-0 z-10 print:z-auto bg-inherit p-1.5 print:p-1 text-gray-500 text-[11px] print:text-[9px] text-center border-r border-gray-200">{rowNum}</td>
-                    <td className="sticky print:static left-8 z-10 print:z-auto bg-inherit p-1.5 print:p-1 border-r border-gray-200">
-                      <input className="w-full min-w-0 bg-transparent border border-transparent focus:border-blue-500 focus:bg-white outline-none rounded px-1 print:px-0 font-semibold text-[#003d7a] print:text-black" value={row.name} onChange={e => updateRow(i, 'name', e.target.value)} />
-                    </td>
-                    <td className="sticky print:static left-[182px] z-10 print:z-auto bg-inherit p-1.5 print:p-1 border-r border-gray-200">
-                      <input className="w-full min-w-0 bg-transparent border border-transparent focus:border-blue-500 focus:bg-white outline-none rounded px-1 print:px-0 text-gray-500 print:text-black" value={row.unit} onChange={e => updateRow(i, 'unit', e.target.value)} />
-                    </td>
-                    <td className="sticky print:static left-[246px] z-10 print:z-auto bg-inherit p-1.5 print:p-1 border-r border-gray-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] print:shadow-none">
-                      <input className="w-full min-w-0 bg-transparent border border-transparent focus:border-blue-500 focus:bg-white outline-none rounded px-1 print:px-0" value={row.limit} onChange={e => updateRow(i, 'limit', e.target.value)} />
-                    </td>
-                    
-                    {certificate.samples.map((_, sIdx) => {
-                      const result = row.results[sIdx] || "";
-
-                      return (
-                        <td key={`res-${sIdx}`} className="p-1.5 print:p-1 border-r border-gray-200 text-center">
-                          <input 
-                            className="w-full min-w-0 bg-transparent border border-transparent focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 outline-none rounded px-1 print:px-0 font-mono text-center" 
-                            value={result} 
-                            placeholder="—"
-                            onChange={e => updateResult(i, sIdx, e.target.value)} 
-                          />
-                        </td>
-                      );
-                    })}
-                    <td className="p-1.5 text-center print:hidden">
-                      <button onClick={() => confirmRemoveRow(i)} className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50">
-                        <X className="w-3 h-3" />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+                });
+              })()}
             </tbody>
           </table>
+          </div>
+          
+          {/* Drag hint pill */}
+          {(canScrollLeft || canScrollRight) && (
+            <div className="flex justify-center mt-2 mb-1 print:hidden">
+              <div className="flex items-center gap-2 px-3 py-1 bg-gray-100 border border-gray-200 rounded-full text-[10px] text-gray-500 animate-in fade-in slide-in-from-bottom-1 underline-offset-2">
+                <GripHorizontal className="w-3 h-3 text-[#003d7a]/60" />
+                <span>Drag table to scroll</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -656,18 +793,18 @@ export function CertificateEditor({ certificate, setCertificate, onSave }: Props
       </div>
 
       {/* Floating Actions */}
-      <div className="fixed bottom-6 right-6 flex gap-2 print:hidden z-50">
-        <Button onClick={onSave} className="shadow-lg bg-[#003d7a] hover:bg-[#004d99]">
-          <Save className="w-4 h-4 mr-2" /> Save
+      <div className="fixed bottom-4 right-3 sm:bottom-6 sm:right-6 flex flex-wrap justify-end gap-1.5 sm:gap-2 print:hidden z-50 max-w-[calc(100vw-1.5rem)]">
+        <Button onClick={onSave} size="sm" className="shadow-lg bg-[#003d7a] hover:bg-[#004d99] h-8 px-3 text-xs">
+          <Save className="w-3.5 h-3.5 mr-1" /> Save
         </Button>
-        <Button onClick={() => window.print()} variant="secondary" className="shadow-lg bg-gray-200 text-black hover:bg-gray-300">
-          <Printer className="w-4 h-4 mr-2" /> Print
+        <Button onClick={() => window.print()} size="sm" variant="secondary" className="shadow-lg bg-gray-200 text-black hover:bg-gray-300 h-8 px-3 text-xs">
+          <Printer className="w-3.5 h-3.5 mr-1" /> Print
         </Button>
-        <Button onClick={downloadPDF} variant="secondary" className="shadow-lg bg-[#e8b400] text-black hover:bg-[#d4a200]">
-          <FileDown className="w-4 h-4 mr-2" /> Download PDF
+        <Button onClick={downloadPDF} size="sm" variant="secondary" className="shadow-lg bg-[#e8b400] text-black hover:bg-[#d4a200] h-8 px-3 text-xs font-semibold">
+          <FileDown className="w-3.5 h-3.5 mr-1" /> PDF
         </Button>
-        <Button onClick={exportCSV} className="shadow-lg bg-[#0072ce] hover:bg-[#0061b0]">
-          <Download className="w-4 h-4 mr-2" /> CSV
+        <Button onClick={exportCSV} size="sm" className="shadow-lg bg-[#0072ce] hover:bg-[#0061b0] h-8 px-3 text-xs">
+          <Download className="w-3.5 h-3.5 mr-1" /> CSV
         </Button>
       </div>
 
@@ -700,3 +837,75 @@ export function CertificateEditor({ certificate, setCertificate, onSave }: Props
     </div>
   );
 }
+
+// ── Memoized Child Components for Extreme Performance ───────────────────
+
+interface ResultCellProps {
+  value: string;
+  rowIdx: number;
+  sampleIdx: number;
+  onChange: (rowIdx: number, sampleIdx: number, value: string) => void;
+}
+
+const ResultCell = memo(({ value, rowIdx, sampleIdx, onChange }: ResultCellProps) => {
+  return (
+    <td className="p-1.5 print:p-1 border-r border-gray-200 text-center">
+      <input 
+        className="w-full min-w-0 bg-transparent border border-transparent focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 outline-none rounded px-1 print:px-0 font-mono text-center" 
+        value={value} 
+        placeholder="—"
+        onChange={e => onChange(rowIdx, sampleIdx, e.target.value)} 
+      />
+    </td>
+  );
+});
+
+interface ParameterRowProps {
+  row: Parameter;
+  idx: number;
+  rowNum: number;
+  sampleCount: number;
+  updateRow: (rowIdx: number, field: keyof Parameter, value: string) => void;
+  updateResult: (rowIdx: number, sampleIdx: number, value: string) => void;
+  confirmRemoveRow: (idx: number) => void;
+}
+
+const ParameterRow = memo(({ 
+  row, 
+  idx, 
+  rowNum, 
+  sampleCount, 
+  updateRow, 
+  updateResult, 
+  confirmRemoveRow 
+}: ParameterRowProps) => {
+  return (
+    <tr className="group hover:bg-blue-50 even:bg-gray-50 bg-white print:even:bg-transparent border-b border-gray-200">
+      <td className="sticky print:static left-0 z-10 print:z-auto bg-white group-even:bg-gray-50 group-hover:bg-blue-50 p-1.5 print:p-1 text-gray-500 text-[11px] print:text-[9px] text-center border-r border-gray-200">{rowNum}</td>
+      <td className="sticky print:static left-8 z-10 print:z-auto bg-white group-even:bg-gray-50 group-hover:bg-blue-50 p-1.5 print:p-1 border-r border-gray-200">
+        <input className="w-full min-w-0 bg-transparent border border-transparent focus:border-blue-500 focus:bg-white outline-none rounded px-1 print:px-0 font-semibold text-[#003d7a] print:text-black" value={row.name} onChange={e => updateRow(idx, 'name', e.target.value)} />
+      </td>
+      <td className="sticky print:static left-[182px] z-10 print:z-auto bg-white group-even:bg-gray-50 group-hover:bg-blue-50 p-1.5 print:p-1 border-r border-gray-200">
+        <input className="w-full min-w-0 bg-transparent border border-transparent focus:border-blue-500 focus:bg-white outline-none rounded px-1 print:px-0 text-gray-500 print:text-black" value={row.unit} onChange={e => updateRow(idx, 'unit', e.target.value)} />
+      </td>
+      <td className="sticky print:static left-[246px] z-10 print:z-auto bg-white group-even:bg-gray-50 group-hover:bg-blue-50 p-1.5 print:p-1 border-r border-gray-200 shadow-[2px_0_10px_-2px_rgba(0,0,0,0.15)] print:shadow-none">
+        <input className="w-full min-w-0 bg-transparent border border-transparent focus:border-blue-500 focus:bg-white outline-none rounded px-1 print:px-0" value={row.limit} onChange={e => updateRow(idx, 'limit', e.target.value)} />
+      </td>
+      
+      {Array.from({ length: sampleCount }, (_, sIdx) => (
+        <ResultCell
+          key={sIdx}
+          value={row.results[sIdx] || ""}
+          rowIdx={idx}
+          sampleIdx={sIdx}
+          onChange={updateResult}
+        />
+      ))}
+      <td className="p-1.5 text-center print:hidden">
+        <button onClick={() => confirmRemoveRow(idx)} className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50">
+          <X className="w-3 h-3" />
+        </button>
+      </td>
+    </tr>
+  );
+});
