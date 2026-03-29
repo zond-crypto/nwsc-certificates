@@ -1,4 +1,4 @@
-import { Parameter } from './types';
+import { Parameter, QuotationItem, RegulatoryLimit } from './types';
 
 export const DEFAULT_PARAMS: Parameter[] = [
   { id: 'sec1', section: "PHYSICAL PARAMETERS", results: [] },
@@ -28,4 +28,36 @@ export const DEFAULT_PARAMS: Parameter[] = [
   { id: 'p22', name: "Total Coliforms (T/Coli)", unit: "CFU/100mL", limit: "0",  results: [""], numeric_limit_high: 0, bio: true },
   { id: 'p23', name: "Faecal Coliforms (F/Coli)", unit: "CFU/100mL", limit: "0", results: [""], numeric_limit_high: 0, bio: true },
   { id: 'p24', name: "HPC (22°C)",      unit: "CFU/mL", limit: "≤ 100",        results: [""], numeric_limit_high: 100 },
+];
+
+export const PARAMETER_PRICES = [
+  { parameterName: 'pH', unitPrice: 150.00 },
+  { parameterName: 'Turbidity', unitPrice: 150.00 },
+  { parameterName: 'Colour', unitPrice: 150.00 },
+  { parameterName: 'TDS', unitPrice: 150.00 },
+  { parameterName: 'TSS', unitPrice: 200.00 },
+  { parameterName: 'EC', unitPrice: 150.00 },
+  { parameterName: 'Free Chlorine', unitPrice: 150.00 },
+  { parameterName: 'Total Hardness', unitPrice: 250.00 },
+  { parameterName: 'Nitrate (NO₃)', unitPrice: 300.00 },
+  { parameterName: 'Nitrite (NO₂)', unitPrice: 300.00 },
+  { parameterName: 'Iron (Fe)', unitPrice: 350.00 },
+  { parameterName: 'Manganese (Mn)', unitPrice: 350.00 },
+  { parameterName: 'Total Coliforms (T/Coli)', unitPrice: 450.00 },
+  { parameterName: 'Faecal Coliforms (F/Coli)', unitPrice: 450.00 },
+  { parameterName: 'HPC (22°C)', unitPrice: 450.00 },
+  { parameterName: 'BOD', unitPrice: 650.00 },
+  { parameterName: 'COD', unitPrice: 650.00 },
+  { parameterName: 'Oil & Grease', unitPrice: 550.00 },
+];
+
+export const INITIAL_REGULATORY_LIMITS: RegulatoryLimit[] = [
+  { id: 'rl1', waterType: 'Drinking', regulatoryBody: 'ZABS', parameterName: 'pH', limitValue: '6.5 – 8.5', unit: '' },
+  { id: 'rl2', waterType: 'Drinking', regulatoryBody: 'ZABS', parameterName: 'Turbidity', limitValue: '≤ 1', unit: 'NTU' },
+  { id: 'rl3', waterType: 'Treated Effluent', regulatoryBody: 'ZEMA', parameterName: 'pH', limitValue: '6.0 – 9.0', unit: '' },
+  { id: 'rl4', waterType: 'Treated Effluent', regulatoryBody: 'ZEMA', parameterName: 'COD', limitValue: '≤ 90', unit: 'mg/L' },
+];
+
+export const DEFAULT_QUOTATION_ITEMS: QuotationItem[] = [
+  { id: 'qi1', parameterName: 'pH', unitPrice: 150.00, quantity: 1, tax: 24.00, amount: 150.00, totalWithTax: 174.00 },
 ];

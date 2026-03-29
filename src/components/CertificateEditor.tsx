@@ -4,7 +4,7 @@ import { DEFAULT_PARAMS } from '../constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, X, Printer, Download, Save, FileDown, ChevronLeft, ChevronRight, GripHorizontal } from 'lucide-react';
+import { Plus, X, Printer, Download, Save, FileDown, ChevronLeft, ChevronRight, GripHorizontal, LayoutGrid } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -14,10 +14,41 @@ interface Props {
   certificate: Certificate;
   setCertificate: React.Dispatch<React.SetStateAction<Certificate>>;
   onSave: () => void;
+  regLimits: RegulatoryLimit[];
 }
 
-export function CertificateEditor({ certificate, setCertificate, onSave }: Props) {
+export function CertificateEditor({ certificate, setCertificate, onSave, regLimits }: Props) {
   const [rowToDelete, setRowToDelete] = useState<number | null>(null);
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+
+  // ── Auto-apply Regulatory Limits ───────────────────────────────────────
+  useEffect(() => {
+    if (!regLimits || regLimits.length === 0) return;
+    const type = certificate.sampleType;
+    const relevantLimits = regLimits.filter(l => l.waterType === type);
+    if (relevantLimits.length === 0) return;
+
+    setCertificate(prev => {
+      let changed = false;
+      const newData = prev.tableData.map(row => {
+        if (row.section) return row;
+        // Match by name or partial name
+        const matchingLimit = relevantLimits.find(rl => 
+          rl.parameterName.toLowerCase() === row.name?.toLowerCase() ||
+          row.name?.toLowerCase().includes(rl.parameterName.toLowerCase())
+        );
+        
+        if (matchingLimit && matchingLimit.limitValue !== row.limit) {
+          changed = true;
+          return { ...row, limit: matchingLimit.limitValue, unit: matchingLimit.unit || row.unit };
+        }
+        return row;
+      });
+      if (!changed) return prev;
+      return { ...prev, tableData: newData };
+    });
+  }, [certificate.sampleType, regLimits, setCertificate]);
+
 
   // ── Horizontal scroll / drag-to-scroll ─────────────────────────────────
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -163,19 +194,35 @@ export function CertificateEditor({ certificate, setCertificate, onSave }: Props
     });
   }, [setCertificate]);
 
-  const addParameter = () => {
-    const newRow: Parameter = {
-      id: `p${Date.now()}`,
-      name: "New Parameter",
-      unit: "mg/L",
-      limit: "",
-      results: certificate.samples.map(() => "")
-    };
-    setCertificate(prev => ({
-      ...prev,
-      tableData: [...prev.tableData, newRow]
-    }));
+  const addParameterInCategory = (categoryName: string) => {
+    setCertificate(prev => {
+      const newData = [...prev.tableData];
+      let sectionIdx = newData.findIndex(r => r.section === categoryName);
+      // If category doesn't exist, append it
+      if (sectionIdx === -1) {
+        newData.push({ id: `sec-${Date.now()}`, section: categoryName, results: [] });
+        sectionIdx = newData.length - 1;
+      }
+      
+      // Find end of section
+      let insertIdx = sectionIdx + 1;
+      for (let i = sectionIdx + 1; i < newData.length; i++) {
+        if (newData[i].section) break;
+        insertIdx = i + 1;
+      }
+
+      newData.splice(insertIdx, 0, {
+        id: `p${Date.now()}`,
+        name: "New Parameter",
+        unit: "mg/L",
+        limit: "",
+        results: prev.samples.map(() => "")
+      });
+      return { ...prev, tableData: newData };
+    });
+    setShowCategoryMenu(false);
   };
+
 
   const confirmRemoveRow = useCallback((idx: number) => {
     setRowToDelete(idx);
@@ -652,11 +699,31 @@ export function CertificateEditor({ certificate, setCertificate, onSave }: Props
 
       {/* Results Table */}
       <div className="w-full">
-        <div className="bg-[#003d7a] text-white px-4 py-2 text-[11px] font-bold tracking-widest uppercase flex items-center justify-between print:bg-gray-200 print:text-black">
-          <span>ANALYTICAL RESULTS</span>
-          <Button variant="ghost" size="sm" onClick={addParameter} className="h-6 text-[10px] hover:bg-white/20 print:hidden">
-            <Plus className="w-3 h-3 mr-1" /> Add Parameter
-          </Button>
+        <div className="flex flex-col md:flex-row justify-between items-center bg-[#003d7a]/5 p-3 rounded-lg border border-[#003d7a]/10 mb-2 gap-3">
+          <h3 className="text-[11px] font-black uppercase tracking-widest text-[#003d7a] flex items-center gap-2">
+            <LayoutGrid className="w-4 h-4" /> Analytical Results Overview
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={addSample} className="h-8 bg-blue-100/50 hover:bg-blue-100 text-[#003d7a] border border-blue-200 text-[10px] font-black uppercase">
+              <Plus className="w-3.5 h-3.5 mr-1" /> Add Sample Column
+            </Button>
+            
+            <div className="relative">
+              <Button size="sm" onClick={() => setShowCategoryMenu(!showCategoryMenu)} className="h-8 bg-[#003d7a] hover:bg-[#002a5a] text-white text-[10px] font-black uppercase">
+                <Plus className="w-3.5 h-3.5 mr-1" /> Add Parameter
+              </Button>
+              {showCategoryMenu && (
+                <div className="absolute right-0 top-9 w-56 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 overflow-hidden text-[#003d7a]">
+                  <div className="p-2.5 bg-gray-50 border-b text-[9px] font-black text-gray-400 uppercase tracking-widest">Select Category</div>
+                  {["PHYSICAL PARAMETERS", "CHEMICAL PARAMETERS", "BACTERIOLOGICAL PARAMETERS", "HEAVY METALS"].map(cat => (
+                    <button key={cat} onClick={() => addParameterInCategory(cat)} className="w-full text-left px-4 py-2.5 text-[11px] font-bold hover:bg-blue-50 transition-colors uppercase">
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
         
         {/* scroll affordance: left arrow, drag-scroll table, right arrow */}
