@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, memo } from 'react';
-import { Certificate, Parameter, RegulatoryLimit } from '../types';
+import { Certificate, Parameter, RegulatoryLimit, Signature } from '../types';
 import { DEFAULT_PARAMS } from '../constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,12 +17,15 @@ interface Props {
   setCertificate: React.Dispatch<React.SetStateAction<Certificate>>;
   onSave: () => void;
   regLimits: RegulatoryLimit[];
+  signatures: Signature[];
 }
 
 export function CertificateEditor({ certificate, setCertificate, onSave, regLimits }: Props) {
   const [rowToDelete, setRowToDelete] = useState<number | null>(null);
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [selectedSign1Id, setSelectedSign1Id] = useState(certificate.sign1SignatureId || '');
+  const [selectedSign2Id, setSelectedSign2Id] = useState(certificate.sign2SignatureId || '');
 
   const printMeasureRef = useRef<HTMLDivElement>(null);
   const [printPages, setPrintPages] = useState<Array<Array<Parameter | { section: string }>>>([]);
@@ -32,6 +35,11 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
   const PAGE_FOOTER_HEIGHT = 35;
 
   // ── Auto-apply Regulatory Limits ───────────────────────────────────────
+  useEffect(() => {
+    setSelectedSign1Id(certificate.sign1SignatureId || '');
+    setSelectedSign2Id(certificate.sign2SignatureId || '');
+  }, [certificate.sign1SignatureId, certificate.sign2SignatureId]);
+
   useEffect(() => {
     if (!regLimits || regLimits.length === 0) return;
     const type = certificate.sampleType;
@@ -121,6 +129,27 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
   const handleMetaChange = useCallback((field: keyof Certificate, value: string) => {
     setCertificate(prev => ({ ...prev, [field]: value }));
   }, [setCertificate]);
+
+  const applySignature = (slot: 'sign1' | 'sign2', signatureId: string) => {
+    const signature = signatures.find(sig => sig.id === signatureId);
+    if (!signature) return;
+    setCertificate(prev => ({
+      ...prev,
+      [`${slot}Name`]: signature.fullName,
+      [`${slot}Title`]: signature.role,
+      [`${slot}SignatureId`]: signature.id,
+      [`${slot}SignatureImage`]: signature.imageDataUrl,
+    } as Certificate));
+
+    if (slot === 'sign1') setSelectedSign1Id(signatureId);
+    else setSelectedSign2Id(signatureId);
+  };
+
+  const applyDefaultSignature = (slot: 'sign1' | 'sign2') => {
+    const defaultSig = signatures.find(sig => sig.isDefault);
+    if (!defaultSig) return;
+    applySignature(slot, defaultSig.id);
+  };
 
   const addSample = () => {
     setCertificate(prev => {
@@ -583,6 +612,13 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
     doc.setLineWidth(0.5);
     
     // Sign 1
+    if (certificate.sign1SignatureImage) {
+      try {
+        doc.addImage(certificate.sign1SignatureImage, 'PNG', 52, finalY - 15, 45, 15);
+      } catch {
+        /* ignore if invalid image*/
+      }
+    }
     doc.line(40, finalY, 100, finalY);
     doc.setFont("helvetica", "bold");
     doc.text(certificate.sign1Name || "Name", 70, finalY + 5, { align: "center" });
@@ -590,6 +626,13 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
     doc.text(certificate.sign1Title || "Title", 70, finalY + 10, { align: "center" });
 
     // Sign 2
+    if (certificate.sign2SignatureImage) {
+      try {
+        doc.addImage(certificate.sign2SignatureImage, 'PNG', 209, finalY - 15, 45, 15);
+      } catch {
+        /* ignore if invalid image */
+      }
+    }
     doc.line(197, finalY, 257, finalY);
     doc.setFont("helvetica", "bold");
     doc.text(certificate.sign2Name || "Name", 227, finalY + 5, { align: "center" });
@@ -994,16 +1037,39 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
       </div>
 
       {/* Signatures */}
-      <div className="grid grid-cols-2 border-t-2 border-[#003d7a] print:border-t-2">
-        <div className="p-6 text-center border-r border-gray-200">
-          <div className="border-t border-black w-48 mx-auto mt-6 mb-2"></div>
-          <input className="w-full bg-transparent border-none outline-none text-center font-bold text-sm text-[#003d7a] print:text-black" value={certificate.sign1Name} onChange={e => handleMetaChange('sign1Name', e.target.value)} placeholder="Name" />
-          <input className="w-full bg-transparent border-none outline-none text-center text-xs text-gray-500 print:text-black mt-1" value={certificate.sign1Title} onChange={e => handleMetaChange('sign1Title', e.target.value)} placeholder="Title" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-4 border-t-2 border-[#003d7a] print:border-t-2 bg-[#f5faff]">
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-[#003d7a]">Signatory 1 (Authorized By)</label>
+          <select value={selectedSign1Id} onChange={e => applySignature('sign1', e.target.value)} className="w-full border rounded px-2 py-1 text-sm">
+            <option value="">(Choose saved signature)</option>
+            {signatures.map(sig => <option key={sig.id} value={sig.id}>{sig.fullName} • {sig.role}{sig.isDefault ? ' (default)' : ''}</option>)}
+          </select>
+          <div className="flex items-center gap-2">
+            <button className="text-xs text-[#003d7a] underline" onClick={() => applyDefaultSignature('sign1')}>Use default</button>
+            <span className="text-xs text-gray-500">or edit below</span>
+          </div>
+          <div className="text-center">
+            <div className="border-t border-black w-48 mx-auto mt-2 mb-2"></div>
+            <input className="w-full bg-transparent border-none outline-none text-center font-bold text-sm text-[#003d7a] print:text-black" value={certificate.sign1Name} onChange={e => handleMetaChange('sign1Name', e.target.value)} placeholder="Name" />
+            <input className="w-full bg-transparent border-none outline-none text-center text-xs text-gray-500 print:text-black mt-1" value={certificate.sign1Title} onChange={e => handleMetaChange('sign1Title', e.target.value)} placeholder="Title" />
+          </div>
         </div>
-        <div className="p-6 text-center">
-          <div className="border-t border-black w-48 mx-auto mt-6 mb-2"></div>
-          <input className="w-full bg-transparent border-none outline-none text-center font-bold text-sm text-[#003d7a] print:text-black" value={certificate.sign2Name} onChange={e => handleMetaChange('sign2Name', e.target.value)} placeholder="Name" />
-          <input className="w-full bg-transparent border-none outline-none text-center text-xs text-gray-500 print:text-black mt-1" value={certificate.sign2Title} onChange={e => handleMetaChange('sign2Title', e.target.value)} placeholder="Title" />
+
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-[#003d7a]">Signatory 2 (Verification)</label>
+          <select value={selectedSign2Id} onChange={e => applySignature('sign2', e.target.value)} className="w-full border rounded px-2 py-1 text-sm">
+            <option value="">(Choose saved signature)</option>
+            {signatures.map(sig => <option key={sig.id} value={sig.id}>{sig.fullName} • {sig.role}{sig.isDefault ? ' (default)' : ''}</option>)}
+          </select>
+          <div className="flex items-center gap-2">
+            <button className="text-xs text-[#003d7a] underline" onClick={() => applyDefaultSignature('sign2')}>Use default</button>
+            <span className="text-xs text-gray-500">or edit below</span>
+          </div>
+          <div className="text-center">
+            <div className="border-t border-black w-48 mx-auto mt-2 mb-2"></div>
+            <input className="w-full bg-transparent border-none outline-none text-center font-bold text-sm text-[#003d7a] print:text-black" value={certificate.sign2Name} onChange={e => handleMetaChange('sign2Name', e.target.value)} placeholder="Name" />
+            <input className="w-full bg-transparent border-none outline-none text-center text-xs text-gray-500 print:text-black mt-1" value={certificate.sign2Title} onChange={e => handleMetaChange('sign2Title', e.target.value)} placeholder="Title" />
+          </div>
         </div>
       </div>
 

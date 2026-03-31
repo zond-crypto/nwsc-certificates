@@ -23,6 +23,10 @@ export type Certificate = {
   sign1Title: string;
   sign2Name: string;
   sign2Title: string;
+  sign1SignatureId?: string;
+  sign2SignatureId?: string;
+  sign1SignatureImage?: string;
+  sign2SignatureImage?: string;
   tableData: Parameter[];
   savedAt: string;
 };
@@ -52,7 +56,21 @@ export type Quotation = {
   sign1Title: string;
   sign2Name: string;
   sign2Title: string;
+  sign1SignatureId?: string;
+  sign2SignatureId?: string;
+  sign1SignatureImage?: string;
+  sign2SignatureImage?: string;
   savedAt: string;
+};
+
+export type Signature = {
+  id: string;
+  fullName: string;
+  role: string;
+  imageDataUrl: string; // Base64 PNG/JPG/svgable
+  dateAdded: string;
+  isDefault: boolean;
+  lastUsedAt?: string;
 };
 
 export type ServicePrice = {

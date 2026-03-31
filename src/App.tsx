@@ -9,6 +9,9 @@ import { SavedQuotations } from './components/SavedQuotations';
 import { PriceListManager } from './components/PriceListManager';
 import { RegulatoryManager } from './components/RegulatoryManager';
 import { WaterTypeManager } from './components/WaterTypeManager';
+import { SignatureManager } from './components/SignatureManager';
+import { loadSignatures, saveSignatures } from './utils/signatures';
+import { Signature } from './types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Plus, Save, Printer, FileText, FolderOpen, Database, ShieldCheck, Settings, Calculator, FileCheck, Droplets } from 'lucide-react';
@@ -81,6 +84,7 @@ export default function App() {
   const [currentQuotation, setCurrentQuotation] = useState<Quotation>(generateNewQuotation(0));
   const [priceList, setPriceList] = useState<ServicePrice[]>([]);
   const [regLimits, setRegLimits] = useState<RegulatoryLimit[]>([]);
+  const [signatures, setSignatures] = useState<Signature[]>([]);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
 
   // ── Load / Save persistence ──
@@ -96,11 +100,16 @@ export default function App() {
       const storedLimits = localStorage.getItem("nkana_limits");
       if (storedLimits) setRegLimits(JSON.parse(storedLimits));
       else setRegLimits(INITIAL_REGULATORY_LIMITS);
+      setSignatures(loadSignatures());
     } catch (e) { console.error("Persistence fail", e); }
   }, []);
 
   useEffect(() => {
     localStorage.setItem("nkana_prices", JSON.stringify(priceList));
+
+  useEffect(() => {
+    saveSignatures(signatures);
+  }, [signatures]);
   }, [priceList]);
 
   useEffect(() => {
@@ -223,6 +232,7 @@ export default function App() {
               <>
                 <TabsTrigger value="watertype" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]"><Droplets className="w-4 h-4 mr-2" /> Water Types</TabsTrigger>
                 <TabsTrigger value="regulatory" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]"><ShieldCheck className="w-4 h-4 mr-2" /> Standards DB</TabsTrigger>
+            <TabsTrigger value="signatures" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]"><ShieldCheck className="w-4 h-4 mr-2" /> Digital Signatures</TabsTrigger>
               </>
             )}
             {activeModule === 'quotations' && (
@@ -232,9 +242,9 @@ export default function App() {
 
           <TabsContent value="editor" className="mt-0 print:m-0">
             {activeModule === 'certificates' ? (
-              <CertificateEditor certificate={currentCert} setCertificate={setCurrentCert} onSave={handleSaveCert} regLimits={regLimits} />
+              <CertificateEditor certificate={currentCert} setCertificate={setCurrentCert} onSave={handleSaveCert} regLimits={regLimits} signatures={signatures} />
             ) : (
-              <QuotationEditor quotation={currentQuotation} setQuotation={setCurrentQuotation} onSave={handleSaveQuote} priceList={priceList} />
+              <QuotationEditor quotation={currentQuotation} setQuotation={setCurrentQuotation} onSave={handleSaveQuote} priceList={priceList} signatures={signatures} />
             )}
           </TabsContent>
 
@@ -252,6 +262,10 @@ export default function App() {
 
           <TabsContent value="regulatory" className="mt-0 print:hidden">
             <RegulatoryManager limits={regLimits} setLimits={setRegLimits} onReset={() => { if (confirm("Reset?")) setRegLimits(INITIAL_REGULATORY_LIMITS); }} />
+
+          <TabsContent value="signatures" className="mt-0 print:hidden">
+            <SignatureManager signatures={signatures} setSignatures={setSignatures} />
+          </TabsContent>
           </TabsContent>
 
           <TabsContent value="database" className="mt-0 print:hidden">

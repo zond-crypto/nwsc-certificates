@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Quotation, QuotationItem, ServicePrice } from '../types';
+import { Quotation, QuotationItem, ServicePrice, Signature } from '../types';
 import { DEFAULT_QUOTATION_ITEMS } from '../constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,11 +16,14 @@ interface Props {
   setQuotation: React.Dispatch<React.SetStateAction<Quotation>>;
   onSave: () => void;
   priceList: ServicePrice[];
+  signatures: Signature[];
 }
 
 export function QuotationEditor({ quotation, setQuotation, onSave, priceList }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
   const [showPreview, setShowPreview] = useState(false);
+  const [selectedSign1Id, setSelectedSign1Id] = useState(quotation.sign1SignatureId || '');
+  const [selectedSign2Id, setSelectedSign2Id] = useState(quotation.sign2SignatureId || '');
 
   const updateTotals = (items: QuotationItem[]) => {
     const subtotal = items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
@@ -36,6 +39,31 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList }: 
 
   const handleMetaChange = (field: keyof Quotation, value: string) => {
     setQuotation(prev => ({ ...prev, [field]: value }));
+  };
+
+  useEffect(() => {
+    setSelectedSign1Id(quotation.sign1SignatureId || '');
+    setSelectedSign2Id(quotation.sign2SignatureId || '');
+  }, [quotation.sign1SignatureId, quotation.sign2SignatureId]);
+
+  const applySignature = (slot: 'sign1' | 'sign2', signatureId: string) => {
+    const signature = signatures.find(sig => sig.id === signatureId);
+    if (!signature) return;
+    setQuotation(prev => ({
+      ...prev,
+      [`${slot}Name`]: signature.fullName,
+      [`${slot}Title`]: signature.role,
+      [`${slot}SignatureId`]: signature.id,
+      [`${slot}SignatureImage`]: signature.imageDataUrl,
+    } as Quotation));
+    if (slot === 'sign1') setSelectedSign1Id(signatureId);
+    else setSelectedSign2Id(signatureId);
+  };
+
+  const applyDefaultSignature = (slot: 'sign1' | 'sign2') => {
+    const defaultSig = signatures.find(sig => sig.isDefault);
+    if (!defaultSig) return;
+    applySignature(slot, defaultSig.id);
   };
 
   const addItem = () => {
@@ -135,6 +163,27 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList }: 
     doc.setTextColor(0, 0, 0);
     doc.text(`GRAND TOTAL:`, 140, finalY + 16);
     doc.text(formatCurrency(quotation.totalAmount), 180, finalY + 16, { align: 'right' });
+
+    const signY = finalY + 30;
+    if (quotation.sign1SignatureImage) {
+      try {
+        doc.addImage(quotation.sign1SignatureImage, 'PNG', 20, signY, 40, 15);
+      } catch {}
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.text(quotation.sign1Name || 'Name', 40, signY + 22, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.text(quotation.sign1Title || 'Title', 40, signY + 26, { align: 'center' });
+
+    if (quotation.sign2SignatureImage) {
+      try {
+        doc.addImage(quotation.sign2SignatureImage, 'PNG', 130, signY, 40, 15);
+      } catch {}
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.text(quotation.sign2Name || '(Authorized Officer)', 150, signY + 22, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.text(quotation.sign2Title || 'Title', 150, signY + 26, { align: 'center' });
 
     doc.save(buildDocumentFilename('Quotation', quotation.client, 'pdf'));
   };
@@ -330,6 +379,28 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList }: 
                  <span className="text-lg font-black text-[#003d7a]">{formatCurrency(quotation.totalAmount)}</span>
               </div>
            </div>
+        </div>
+      </div>
+
+      {/* Signature Selection */}
+      <div className="p-4 bg-[#f5faff] border-t border-[#003d7a]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-[#003d7a]">Signatory 1</label>
+            <select value={selectedSign1Id} onChange={e => applySignature('sign1', e.target.value)} className="w-full border rounded px-2 py-1 text-sm">
+              <option value="">(Choose saved signature)</option>
+              {signatures.map(sig => <option key={sig.id} value={sig.id}>{sig.fullName} • {sig.role}{sig.isDefault ? ' (default)' : ''}</option>)}
+            </select>
+            <button className="text-xs text-[#003d7a] underline" onClick={() => applyDefaultSignature('sign1')}>Use default signature</button>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-[#003d7a]">Signatory 2</label>
+            <select value={selectedSign2Id} onChange={e => applySignature('sign2', e.target.value)} className="w-full border rounded px-2 py-1 text-sm">
+              <option value="">(Choose saved signature)</option>
+              {signatures.map(sig => <option key={sig.id} value={sig.id}>{sig.fullName} • {sig.role}{sig.isDefault ? ' (default)' : ''}</option>)}
+            </select>
+            <button className="text-xs text-[#003d7a] underline" onClick={() => applyDefaultSignature('sign2')}>Use default signature</button>
+          </div>
         </div>
       </div>
 

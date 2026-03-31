@@ -139,11 +139,13 @@ export function generateCertificatePreviewHTML(cert: Certificate): string {
         <p class="text-xs text-gray-600 mb-4">Date Reported: <strong>${cert.dateReported}</strong></p>
         <div class="grid grid-cols-2 gap-8 text-sm">
           <div class="text-center">
+            ${cert.sign1SignatureImage ? `<img src="${cert.sign1SignatureImage}" alt="Signature 1" class="mx-auto mb-2 h-10 object-contain" />` : ''}
             <p class="border-t border-gray-400 pt-2">________________________</p>
             <p class="font-bold text-[#003d7a]">${cert.sign1Name}</p>
             <p class="text-xs text-gray-600">${cert.sign1Title}</p>
           </div>
           <div class="text-center">
+            ${cert.sign2SignatureImage ? `<img src="${cert.sign2SignatureImage}" alt="Signature 2" class="mx-auto mb-2 h-10 object-contain" />` : ''}
             <p class="border-t border-gray-400 pt-2">________________________</p>
             <p class="font-bold text-[#003d7a]">${cert.sign2Name || '(Authorized Officer)'}</p>
             <p class="text-xs text-gray-600">${cert.sign2Title}</p>
@@ -227,11 +229,13 @@ export function generateQuotationPreviewHTML(quote: Quotation): string {
       <div class="border-t-2 border-[#003d7a] pt-6 mt-6">
         <div class="grid grid-cols-2 gap-8 text-sm">
           <div class="text-center">
+            ${quote.sign1SignatureImage ? `<img src="${quote.sign1SignatureImage}" alt="Signature 1" class="mx-auto mb-2 h-10 object-contain" />` : ''}
             <p class="border-t border-gray-400 pt-2">________________________</p>
             <p class="font-bold text-[#003d7a]">${quote.sign1Name}</p>
             <p class="text-xs text-gray-600">${quote.sign1Title}</p>
           </div>
           <div class="text-center">
+            ${quote.sign2SignatureImage ? `<img src="${quote.sign2SignatureImage}" alt="Signature 2" class="mx-auto mb-2 h-10 object-contain" />` : ''}
             <p class="border-t border-gray-400 pt-2">________________________</p>
             <p class="font-bold text-[#003d7a]">${quote.sign2Name || '(Authorized Officer)'}</p>
             <p class="text-xs text-gray-600">${quote.sign2Title}</p>
