@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, memo } from 'react';
 import { Certificate, Parameter, RegulatoryLimit } from '../types';
 import { DEFAULT_PARAMS } from '../constants';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,13 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
   const [rowToDelete, setRowToDelete] = useState<number | null>(null);
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+
+  const printMeasureRef = useRef<HTMLDivElement>(null);
+  const [printPages, setPrintPages] = useState<Array<Array<Parameter | { section: string }>>>([]);
+
+  const PAGE_HEIGHT_LIMIT = 1120; // px for print page total usable height
+  const PAGE_HEADER_HEIGHT = 220; // approximate rendered header size
+  const PAGE_FOOTER_HEIGHT = 35;
 
   // ── Auto-apply Regulatory Limits ───────────────────────────────────────
   useEffect(() => {
@@ -272,6 +279,56 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
     }
     return 'WHO/ZS Limit';
   }, [certificate.sampleType]);
+
+  useLayoutEffect(() => {
+    const measureContainer = printMeasureRef.current;
+    if (!measureContainer) return;
+
+    const rowElements = Array.from(measureContainer.querySelectorAll<HTMLTableRowElement>('tr.measure-row')) as HTMLTableRowElement[];
+    const tableHeader = measureContainer.querySelector<HTMLTableSectionElement>('thead');
+    const tableHeaderHeight = tableHeader ? tableHeader.offsetHeight : 30;
+
+    const pages: Array<Array<Parameter | { section: string }>> = [];
+    let currentPage: Array<Parameter | { section: string }> = [];
+    let accumulatedHeight = PAGE_HEADER_HEIGHT + tableHeaderHeight;
+
+    certificate.tableData.forEach((row, index) => {
+      const rowEl = rowElements[index];
+      const rowHeight = rowEl ? rowEl.offsetHeight : 28;
+
+      if (accumulatedHeight + rowHeight + PAGE_FOOTER_HEIGHT > PAGE_HEIGHT_LIMIT && currentPage.length > 0) {
+        pages.push(currentPage);
+        currentPage = [];
+        accumulatedHeight = PAGE_HEADER_HEIGHT + tableHeaderHeight;
+      }
+
+      currentPage.push(row);
+      accumulatedHeight += rowHeight;
+    });
+
+    if (currentPage.length > 0) pages.push(currentPage);
+    setPrintPages(pages);
+  }, [certificate.tableData, certificate.samples, limitHeader]);
+
+  const renderPrintPageHeader = (pageNumber: number, totalPages: number) => (
+    <div className="px-4 py-3 border-b border-[#003d7a] print:border-[#003d7a]">
+      <div className="flex justify-between items-start gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-14 h-14 p-1 border border-gray-300 rounded-md bg-white">
+            <NkanaLogo className="w-full h-full object-contain" />
+          </div>
+          <div>
+            <div className="text-xs font-black uppercase tracking-wider text-[#003d7a]">NKANA WATER SUPPLY AND SANITATION COMPANY</div>
+            <div className="text-[10px] text-gray-700">WATER ANALYSIS CERTIFICATE</div>
+          </div>
+        </div>
+        <div className="text-right text-[10px] font-semibold text-gray-700">Page {pageNumber} of {totalPages}</div>
+      </div>
+      <div className="mt-2 text-[9px] text-gray-600">
+        Client: {certificate.client || '-'} • Sample Type: {certificate.sampleType || '-'} • Date Sampled: {certificate.dateSampled || '-'}
+      </div>
+    </div>
+  );
 
   const overallStatus = React.useMemo(() => {
     let hasAnyResult = false;
@@ -579,6 +636,15 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 print:shadow-none print:border-none">
+      <style>{`
+        .page { page-break-after: always; }
+        .page:last-child { page-break-after: auto; }
+        .break-words, .page td { word-wrap: break-word; overflow-wrap: anywhere; white-space: normal; }
+        @media print {
+          .no-print { display: none !important; }
+          .print-only { display: block !important; }
+        }
+      `}</style>
       {/* Header */}
       <div className="bg-gradient-to-br from-[#002050] via-[#003d7a] to-[#004a94] text-white border-b-[3px] border-[#e8b400] print:border-b-2 print:bg-white print:text-black">
         <div className="flex flex-col sm:flex-row items-center sm:items-stretch">
@@ -706,6 +772,102 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
             <Plus className="w-3 h-3 mr-1" /> Add Sample
           </Button>
         </div>
+      </div>
+
+      {/* Print-only paginated certificate (for print mode) */}
+      <div className="hidden print:block">
+        {printPages.map((rows, pageIndex) => (
+          <section key={pageIndex} className="page bg-white min-h-[280mm] p-4 mb-4 border border-gray-200">
+            {renderPrintPageHeader(pageIndex + 1, printPages.length)}
+
+            <div className="mt-3">
+              <table className="w-full border-collapse text-[10px]">
+                <thead>
+                  <tr>
+                    <th className="border p-1 text-left font-bold">#</th>
+                    <th className="border p-1 text-left font-bold">Parameter</th>
+                    <th className="border p-1 text-center font-bold">Unit</th>
+                    <th className="border p-1 text-center font-bold">{limitHeader}</th>
+                    {certificate.samples.map((s, idx) => (
+                      <th key={idx} className="border p-1 text-center font-bold">{s}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    let pageNumber = 0;
+                    return rows.map((row: any, rowIdx: number) => {
+                      if (row.section) {
+                        return (
+                          <tr key={`section-${pageIndex}-${rowIdx}`}>
+                            <td colSpan={4 + certificate.samples.length} className="border p-1 font-black bg-[#ebf4ff] text-xs uppercase">
+                              {row.section}
+                            </td>
+                          </tr>
+                        );
+                      }
+                      pageNumber += 1;
+                      return (
+                        <tr key={`row-${pageIndex}-${rowIdx}`}>
+                          <td className="border p-1 text-center">{pageNumber}</td>
+                          <td className="border p-1 break-words overflow-hidden">{row.name}</td>
+                          <td className="border p-1 text-center">{row.unit}</td>
+                          <td className="border p-1 text-center">{row.limit}</td>
+                          {row.results.map((value: string, j: number) => (
+                            <td key={j} className="border p-1 text-center">{value || '-'}</td>
+                          ))}
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+
+              <div className="mt-4 text-right text-[10px] text-gray-600 border-t border-gray-300 pt-2">
+                Page {pageIndex + 1} of {printPages.length}
+              </div>
+            </div>
+          </section>
+        ))}
+      </div>
+
+      {/* Hidden measurement table (for print pagination logic) */}
+      <div ref={printMeasureRef} className="absolute left-[-9999px] top-0 opacity-0 pointer-events-none" aria-hidden="true">
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr>
+              <th className="border p-1">#</th>
+              <th className="border p-1">Parameter</th>
+              <th className="border p-1">Unit</th>
+              <th className="border p-1">{limitHeader}</th>
+              {certificate.samples.map((s, idx) => (
+                <th key={idx} className="border p-1">{s}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {certificate.tableData.map((row, idx) => {
+              if (row.section) {
+                return (
+                  <tr key={row.id || `section-${idx}`} className="measure-row">
+                    <td colSpan={4 + certificate.samples.length} className="border p-1">{row.section}</td>
+                  </tr>
+                );
+              }
+              return (
+                <tr key={row.id || `row-${idx}`} className="measure-row">
+                  <td className="border p-1">{idx + 1}</td>
+                  <td className="border p-1 break-words">{row.name}</td>
+                  <td className="border p-1">{row.unit}</td>
+                  <td className="border p-1">{row.limit}</td>
+                  {certificate.samples.map((_, sampleIdx) => (
+                    <td key={sampleIdx} className="border p-1">{row.results[sampleIdx] || '-'}</td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       {/* Results Table */}
