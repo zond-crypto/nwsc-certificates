@@ -1,20 +1,75 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# NWSC Quotation & Certificate Generator
 
-# Run and deploy your AI Studio app
+A comprehensive web application for generating water analysis certificates and service quotations for Nkana Water and Sewerage Company.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/684f5860-587d-4e50-a4b1-678ab96f0379
+- **Certificate Generation**: Create detailed water analysis certificates with regulatory compliance
+- **Quotation System**: Generate service quotations with tax calculations (16% VAT)
+- **PDF Export**: Download certificates and quotations as PDF with company branding
+- **PDF Preview**: Preview documents before downloading
+- **Data Management**: Save, load, and manage certificates and quotations locally
+- **Standards Integration**: Auto-update regulatory standards from ZABS and ZEMA
+- **Offline Capable**: Works completely offline once loaded
 
-## Run Locally
+## Run Locally (Development)
 
-**Prerequisites:**  Node.js
+**Prerequisites:** Node.js (v16 or higher)
 
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/zond-crypto/nwsc-certificates.git
+   cd nwsc-certificates
+   ```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+4. Open http://localhost:3000 in your browser
+
+## Offline Usage
+
+The application can run completely offline after initial setup:
+
+### Option 1: Development Server (Requires Node.js)
+```bash
+npm install
+npm run dev
+```
+Access at http://localhost:3000
+
+### Option 2: Production Build (Static Files)
+```bash
+npm run build
+npx serve dist
+```
+Access at http://localhost:3000
+
+### Option 3: Simple Python Server
+```bash
+npm run build
+cd dist
+python -m http.server 3000
+```
+Access at http://localhost:3000
+
+## Data Storage
+
+- All certificates and quotations are stored locally in your browser's localStorage
+- No data is sent to external servers
+- Standards cache persists for 30 days
+
+## Technologies Used
+
+- React 19 + TypeScript
+- Vite (build tool)
+- Tailwind CSS (styling)
+- jsPDF (PDF generation)
+- Shadcn/ui (components)
