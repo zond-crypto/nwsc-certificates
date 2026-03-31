@@ -350,9 +350,15 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
   }, [certificate.tableData, computeStatus]);
 
   const exportCSV = () => {
-    let csv = `Certificate No,Client,Date Sampled,Date Reported,Sample Type,Location\n`;
-    csv += `"${certificate.certNumber}","${certificate.client}","${certificate.dateSampled}","${certificate.dateReported}",`;
-    csv += `"${certificate.sampleType}","${certificate.location}"\n\n`;
+    // Match PDF style in CSV by including header metadata and a sectioned table
+    let csv = `NKANA WATER SUPPLY AND SANITATION COMPANY,,,...\n`;
+    csv += `WATER ANALYSIS CERTIFICATE,,,...\n`;
+    csv += `,,,\n`;
+
+    csv += `Certificate No:,"${certificate.certNumber}",Client:,"${certificate.client}",Sample Type:,"${certificate.sampleType}"\n`;
+    csv += `Date Sampled:,"${certificate.dateSampled}",Date Reported:,"${certificate.dateReported}",Location:,"${certificate.location}"\n`;
+    csv += `Status:,"${overallStatus.label}"\n`;
+    csv += `,,,\n`;
 
     csv += `#,Parameter,Unit,${getLimitHeader()}`;
     certificate.samples.forEach(sample => {
@@ -363,20 +369,24 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
     let rowNum = 0;
     certificate.tableData.forEach(row => {
       if (row.section) {
-        csv += `\n[${row.section}]\n`;
+        csv += `\n"${row.section}"\n`;
       } else {
         rowNum++;
-        csv += `${rowNum},"${row.name}","${row.unit}","${row.limit}"`;
+        const sanitizedLimit = row.limit?.replace(/≤/g, '<=');
+        csv += `${rowNum},"${row.name}","${row.unit}","${sanitizedLimit}"`;
         certificate.samples.forEach((_, sIdx) => {
-          const result = row.results[sIdx] || "";
+          const result = (row.results[sIdx] || "").toString().replace(/≤/g, '<=');
           csv += `,"${result}"`;
         });
         csv += `\n`;
       }
     });
 
-    csv += `\nSigned By,"${certificate.sign1Name} (${certificate.sign1Title})"`;
-    csv += `,"${certificate.sign2Name} (${certificate.sign2Title})"\n`;
+    csv += `\n`;
+    csv += `Page 1 of 1 (exported as CSV, see PDF for exact pages),,,\n`;
+    csv += `\n`;
+    csv += `Signed By:,"${certificate.sign1Name} (${certificate.sign1Title})",,,,,\n`;
+    csv += `Signed By:,"${certificate.sign2Name} (${certificate.sign2Title})",,,,,\n`;
 
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -391,38 +401,9 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
   const downloadPDF = async () => {
     const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
 
-    const svgString = `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="100" cy="100" r="98" fill="#ffffff" stroke="#0000FF" stroke-width="3"/>
-  <circle cx="100" cy="100" r="65" fill="#b3e5fc" stroke="#0000FF" stroke-width="1"/>
-  <path id="topTextPath" d="M 18 100 A 82 82 0 0 1 182 100" fill="none" />
-  <path id="bottomTextPath" d="M 18 100 A 82 82 0 0 0 182 100" fill="none" />
-  <text font-family="Arial, sans-serif" font-weight="bold" font-size="15" fill="#000" letter-spacing="1">
-    <textPath href="#topTextPath" startOffset="50%" text-anchor="middle">NKANA WATER AND SEWERAGE</textPath>
-  </text>
-  <text font-family="Arial, sans-serif" font-weight="bold" font-size="18" fill="#000" letter-spacing="2" dominant-baseline="hanging">
-    <textPath href="#bottomTextPath" startOffset="50%" text-anchor="middle">COMPANY</textPath>
-  </text>
-  <clipPath id="innerClip">
-    <circle cx="100" cy="100" r="65"/>
-  </clipPath>
-  <g clip-path="url(#innerClip)">
-    <rect x="0" y="130" width="200" height="8" fill="#00FF00"/>
-    <rect x="0" y="138" width="200" height="12" fill="#8B4513"/>
-    <rect x="0" y="150" width="200" height="50" fill="#00BFFF"/>
-    <path d="M 0 155 Q 20 145 40 155 T 80 155 T 120 155 T 160 155 T 200 155" fill="none" stroke="#fff" stroke-width="1.5"/>
-    <path d="M 0 165 Q 20 155 40 165 T 80 165 T 120 165 T 160 165 T 200 165" fill="none" stroke="#fff" stroke-width="1.5"/>
-    <path d="M 0 175 Q 20 165 40 175 T 80 175 T 120 175 T 160 175 T 200 175" fill="none" stroke="#fff" stroke-width="1.5"/>
-    <path d="M 115 130 L 115 70 L 85 70 L 85 85 L 75 85 L 75 60 L 125 60 L 125 130 Z" fill="#808080"/>
-    <rect x="95" y="50" width="10" height="10" fill="#FFD700"/>
-    <rect x="85" y="45" width="30" height="5" fill="#FFD700"/>
-    <path d="M 80 95 Q 80 102 85 102 Q 90 102 90 95 L 85 88 Z" fill="#0000FF"/>
-    <path d="M 80 110 Q 80 117 85 117 Q 90 117 90 110 L 85 103 Z" fill="#0000FF"/>
-    <polygon points="65,130 105,130 100,100 70,100" fill="#CC0000"/>
-  </g>
-</svg>`;
-
     const logoDataUrl = await new Promise<string>((resolve) => {
       const img = new Image();
+      img.crossOrigin = 'anonymous';
       img.onload = () => {
         const canvas = document.createElement('canvas');
         canvas.width = 400;
@@ -432,24 +413,20 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
         resolve(canvas.toDataURL('image/png'));
       };
       img.onerror = () => resolve('');
-      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString);
+      img.src = '/logo.png';
     });
 
     const drawWatermark = () => {
       if (logoDataUrl) {
         doc.saveGraphicsState();
         doc.setGState((doc as any).GState({ opacity: 0.03 }));
-        
+
         const w = 120;
         const h = 120;
-        // Position watermark in bottom-right corner, away from header and content
-        const x = 297 - w - 30; // 30mm from right edge
-        const y = 210 - h - 20; // 20mm from bottom edge
-        
-        doc.addImage(logoDataUrl, 'PNG', x, y, w, h);
-        doc.restoreGraphicsState();
-      }
-    };
+        // Center watermark on page to preserve layout for every page
+        const x = (297 - w) / 2;
+        const y = (210 - h) / 2;
+
 
     const drawHeader = () => {
       // Add Header
@@ -553,13 +530,15 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
         body.push([{ content: row.section, colSpan: 4 + certificate.samples.length, styles: { fillColor: [0, 61, 122], textColor: 255, fontStyle: 'bold' } }]);
       } else {
         rowNum++;
+        const sanitizedLimit = row.limit?.replace(/≤/g, '<=');
         const rowData = [
           { content: rowNum.toString(), styles: { halign: 'center' as const } },
           row.name,
           row.unit,
-          row.limit,
+          sanitizedLimit,
           ...certificate.samples.map((_, sIdx) => {
-            return { content: row.results[sIdx] || "-", styles: { halign: 'center' as const } };
+            const rawValue = row.results[sIdx] || "-";
+            return { content: rawValue.replace(/≤/g, '<='), styles: { halign: 'center' as const } };
           })
         ];
         body.push(rowData);
