@@ -106,11 +106,11 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem("nkana_prices", JSON.stringify(priceList));
+  }, [priceList]);
 
   useEffect(() => {
     saveSignatures(signatures);
   }, [signatures]);
-  }, [priceList]);
 
   useEffect(() => {
     localStorage.setItem("nkana_limits", JSON.stringify(regLimits));

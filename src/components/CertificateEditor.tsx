@@ -20,7 +20,7 @@ interface Props {
   signatures: Signature[];
 }
 
-export function CertificateEditor({ certificate, setCertificate, onSave, regLimits }: Props) {
+export function CertificateEditor({ certificate, setCertificate, onSave, regLimits, signatures }: Props) {
   const [rowToDelete, setRowToDelete] = useState<number | null>(null);
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const [showPreview, setShowPreview] = useState(false);

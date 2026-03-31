@@ -19,7 +19,7 @@ interface Props {
   signatures: Signature[];
 }
 
-export function QuotationEditor({ quotation, setQuotation, onSave, priceList }: Props) {
+export function QuotationEditor({ quotation, setQuotation, onSave, priceList, signatures }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
   const [showPreview, setShowPreview] = useState(false);
   const [selectedSign1Id, setSelectedSign1Id] = useState(quotation.sign1SignatureId || '');
