@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { NkanaLogo } from './Logo';
+import { buildDocumentFilename } from '../utils/fileNaming';
 import { PDFPreviewModal, generateCertificatePreviewHTML } from './PDFPreviewModal';
 
 interface Props {
@@ -392,7 +393,7 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `NKANA_WaterAnalysis_${certificate.client}_${certificate.dateSampled}.csv`;
+    a.download = buildDocumentFilename('COA', certificate.client, 'csv');
     a.click();
     URL.revokeObjectURL(url);
     toast.success("CSV exported!");
@@ -609,7 +610,7 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
       doc.text(`Page ${i} of ${pageCount}`, 280, 203, { align: "right" });
     }
 
-    doc.save(`Certificate_${certificate.certNumber || 'Draft'}.pdf`);
+    doc.save(buildDocumentFilename('COA', certificate.client, 'pdf'));
     toast.success("PDF downloaded successfully!");
   };
 

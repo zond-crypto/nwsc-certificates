@@ -8,6 +8,7 @@ import { Plus, X, Printer, Save, FileDown, Search, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { buildDocumentFilename } from '../utils/fileNaming';
 import { PDFPreviewModal, generateQuotationPreviewHTML } from './PDFPreviewModal';
 
 interface Props {
@@ -135,7 +136,43 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList }: 
     doc.text(`GRAND TOTAL:`, 140, finalY + 16);
     doc.text(formatCurrency(quotation.totalAmount), 180, finalY + 16, { align: 'right' });
 
-    doc.save(`Quotation_${quotation.quoteNumber}.pdf`);
+    doc.save(buildDocumentFilename('Quotation', quotation.client, 'pdf'));
+  };
+
+  const exportCSV = () => {
+    let csv = `NKANA WATER SUPPLY AND SANITATION COMPANY,,,...\n`;
+    csv += `SERVICE QUOTATION,,,...\n`;
+    csv += `,,,...\n`;
+
+    csv += `Quote No:,"${quotation.quoteNumber}",Client:,"${quotation.client}",Date:,"${quotation.date}"\n`;
+    csv += `Valid Until:,"${quotation.validUntil}",,,\n`;
+    csv += `,,,...\n`;
+
+    csv += `#,Description,Qty,Unit Price,Tax (16%),Subtotal\n`;
+
+    quotation.items.forEach((item, idx) => {
+      csv += `${idx + 1},"${item.parameterName}",${item.quantity},"K ${item.unitPrice.toFixed(2)}",`;
+      csv += `"K ${item.tax.toFixed(2)}",`;
+      csv += `"K ${item.amount.toFixed(2)}"\n`;
+    });
+
+    csv += `,,,...\n`;
+    csv += `Subtotal,,"K ${quotation.subtotal.toFixed(2)}"\n`;
+    csv += `Total VAT (16%),,"K ${quotation.totalTax.toFixed(2)}"\n`;
+    csv += `Grand Total,,"K ${quotation.totalAmount.toFixed(2)}"\n`;
+
+    csv += `,,,...\n`;
+    csv += `Signed By:,"${quotation.sign1Name} (${quotation.sign1Title})",,,\n`;
+    csv += `Signed By:,"${quotation.sign2Name} (${quotation.sign2Title})",,,\n`;
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = buildDocumentFilename('Quotation', quotation.client, 'csv');
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV exported!');
   };
 
   return (
@@ -300,6 +337,7 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList }: 
       <div className="p-6 bg-gray-50 border-t flex justify-end gap-3">
          <Button onClick={onSave} className="bg-[#003d7a] hover:bg-[#002a5a] font-bold"><Save className="w-4 h-4 mr-2" /> Save Quote</Button>
          <Button onClick={() => setShowPreview(true)} className="bg-purple-600 hover:bg-purple-700 font-bold"><Eye className="w-4 h-4 mr-2" /> Preview</Button>
+         <Button onClick={exportCSV} className="bg-blue-500 hover:bg-blue-600 text-white font-black"><FileDown className="w-4 h-4 mr-2" /> Export CSV</Button>
          <Button onClick={exportPDF} className="bg-[#e8b400] hover:bg-[#d4a200] text-[#1a1a00] font-black"><Printer className="w-4 h-4 mr-2" /> Print PDF</Button>
       </div>
 
