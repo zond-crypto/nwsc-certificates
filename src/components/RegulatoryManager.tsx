@@ -3,8 +3,17 @@ import { RegulatoryLimit, WaterType } from '../types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Printer, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, Printer, ShieldCheck, RefreshCw, Download, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  fetchZABSStandards,
+  fetchZEMAStandards,
+  getCachedStandards,
+  clearStandardsCache,
+  getCacheInfo,
+  exportStandardsAsJSON,
+  importStandardsFromJSON
+} from '../utils/standardsFetcher';
 
 interface Props {
   limits: RegulatoryLimit[];
@@ -19,6 +28,64 @@ export function RegulatoryManager({ limits, setLimits, onReset }: Props) {
   const [newParam, setNewParam] = useState("");
   const [newValue, setNewValue] = useState("");
   const [newUnit, setNewUnit] = useState("mg/L");
+  const [isFetching, setIsFetching] = useState(false);
+
+  const cacheInfo = getCacheInfo();
+  const cacheStatus = cacheInfo ? `${cacheInfo.source} (${cacheInfo.ageInDays} days ago)` : 'No cache';
+
+  const handleFetchStandards = async () => {
+    setIsFetching(true);
+    try {
+      const zabsData = await fetchZABSStandards();
+      const zemaData = await fetchZEMAStandards();
+      const allData = [...zabsData, ...zemaData];
+      setLimits(prev => [...prev, ...allData]);
+      toast.success('Standards fetched and added successfully!');
+    } catch (error) {
+      toast.error('Failed to fetch standards from web');
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  const handleExport = () => {
+    const dataStr = exportStandardsAsJSON(limits);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    const exportFileDefaultName = 'water-standards.json';
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+    toast.success('Standards exported successfully!');
+  };
+
+  const handleImport = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const imported = importStandardsFromJSON(e.target?.result as string);
+            setLimits(prev => [...prev, ...imported]);
+            toast.success('Standards imported successfully!');
+          } catch (error) {
+            toast.error('Failed to import standards');
+          }
+        };
+        reader.readAsText(file);
+      }
+    };
+    input.click();
+  };
+
+  const removeLimit = (id: string) => {
+    setLimits(prev => prev.filter(l => l.id !== id));
+    toast.success('Standard removed successfully!');
+  };
 
   const addLimit = () => {
     if (!newParam || !newValue) {
@@ -39,10 +106,6 @@ export function RegulatoryManager({ limits, setLimits, onReset }: Props) {
     toast.success("Standard added successfully!");
   };
 
-  const removeLimit = (id: string) => {
-    setLimits(prev => prev.filter(l => l.id !== id));
-  };
-
   return (
     <div className="bg-white rounded-xl shadow-lg border p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -50,11 +113,22 @@ export function RegulatoryManager({ limits, setLimits, onReset }: Props) {
            <h2 className="text-2xl font-black text-[#003d7a] uppercase flex items-center gap-2">
               <ShieldCheck className="w-7 h-7 text-[#e8b400]" /> Water Quality standards database
            </h2>
-           <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">ZABS & ZEMA Regulatory Compliance Center</p>
+           <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">ZABS & ZEMA Regulatory Compliance Center • {cacheStatus}</p>
         </div>
-        <Button variant="outline" size="sm" onClick={onReset} className="text-xs border-gray-300">
-           <RefreshCw className="w-3 h-3 mr-1" /> Reset All Standards
-        </Button>
+        <div className="flex gap-2">
+           <Button variant="outline" size="sm" onClick={handleFetchStandards} disabled={isFetching} className="text-xs border-blue-300 text-blue-600 hover:bg-blue-50">
+              <RefreshCw className={`w-3 h-3 mr-1 ${isFetching ? 'animate-spin' : ''}`} /> {isFetching ? 'Fetching...' : 'Refresh from Web'}
+           </Button>
+           <Button variant="outline" size="sm" onClick={handleExport} className="text-xs border-gray-300">
+              <Download className="w-3 h-3 mr-1" /> Export
+           </Button>
+           <Button variant="outline" size="sm" onClick={handleImport} className="text-xs border-gray-300">
+              <Upload className="w-3 h-3 mr-1" /> Import
+           </Button>
+           <Button variant="outline" size="sm" onClick={onReset} className="text-xs border-gray-300">
+              <RefreshCw className="w-3 h-3 mr-1" /> Reset All
+           </Button>
+        </div>
       </div>
 
       <div className="bg-[#f0f9ff] p-5 rounded-2xl border border-blue-100 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">

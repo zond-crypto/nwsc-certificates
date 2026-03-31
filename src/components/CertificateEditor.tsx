@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
-import { Certificate, Parameter } from '../types';
+import { Certificate, Parameter, RegulatoryLimit } from '../types';
 import { DEFAULT_PARAMS } from '../constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, X, Printer, Download, Save, FileDown, ChevronLeft, ChevronRight, GripHorizontal, LayoutGrid } from 'lucide-react';
+import { Plus, X, Printer, Download, Save, FileDown, ChevronLeft, ChevronRight, GripHorizontal, LayoutGrid, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { NkanaLogo } from './Logo';
+import { PDFPreviewModal, generateCertificatePreviewHTML } from './PDFPreviewModal';
 
 interface Props {
   certificate: Certificate;
@@ -20,6 +21,7 @@ interface Props {
 export function CertificateEditor({ certificate, setCertificate, onSave, regLimits }: Props) {
   const [rowToDelete, setRowToDelete] = useState<number | null>(null);
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // ── Auto-apply Regulatory Limits ───────────────────────────────────────
   useEffect(() => {
@@ -144,15 +146,20 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
 
   const removeSample = (idx: number) => {
     if (certificate.samples.length <= 1) return;
-    setCertificate(prev => ({
-      ...prev,
-      samples: prev.samples.filter((_, i) => i !== idx),
-      tableData: prev.tableData.map(row => {
-        if (row.section) return { ...row, results: [] };
-        return { ...row, results: row.results.filter((_, i) => i !== idx) };
-      })
-    }));
+    setCertificate(prev => {
+      const newSamples = prev.samples.filter((_, i) => i !== idx).map((s, i) => `Sample ${i + 1}`);
+      return {
+        ...prev,
+        samples: newSamples,
+        tableData: prev.tableData.map(row => {
+          if (row.section) return { ...row, results: [] };
+          return { ...row, results: row.results.filter((_, i) => i !== idx) };
+        })
+      };
+    });
   };
+
+  const getLimitHeader = () => 'Limit';
 
   const updateResult = useCallback((rowIdx: number, sampleIdx: number, value: string) => {
     setCertificate(prev => {
@@ -374,12 +381,13 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
     const drawWatermark = () => {
       if (logoDataUrl) {
         doc.saveGraphicsState();
-        doc.setGState((doc as any).GState({ opacity: 0.05 }));
+        doc.setGState((doc as any).GState({ opacity: 0.03 }));
         
-        const w = 100;
-        const h = 100;
-        const x = (297 - w) / 2;
-        const y = (210 - h) / 2;
+        const w = 120;
+        const h = 120;
+        // Position watermark in bottom-right corner, away from header and content
+        const x = 297 - w - 30; // 30mm from right edge
+        const y = 210 - h - 20; // 20mm from bottom edge
         
         doc.addImage(logoDataUrl, 'PNG', x, y, w, h);
         doc.restoreGraphicsState();
@@ -507,15 +515,18 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
       body: body,
       theme: 'grid',
       showHead: 'everyPage',
-      horizontalPageBreak: true,
-      horizontalPageBreakRepeat: [0, 1], // Repeat '#' and 'Parameter'
+      didDrawPage: (data: any) => {
+        drawWatermark();
+        drawHeader();
+      },
       styles: { fontSize: 8, cellPadding: { top: 4, right: 2, bottom: 4, left: 2 } },
       headStyles: { fillColor: [26, 80, 153], textColor: 255 },
       alternateRowStyles: { fillColor: [245, 247, 250] },
-      margin: { top: 65, right: 14, bottom: 20, left: 14 },
-      didDrawPage: () => {
-        drawWatermark();
-        drawHeader();
+      margin: { top: 65, right: 14, bottom: 30, left: 14 },
+      columnStyles: {
+        0: { cellWidth: 15 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 20 }
       }
     });
 
@@ -645,9 +656,9 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
 
       {/* Meta Bar */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 border-b-2 border-[#003d7a] bg-[#e8f0fa] print:bg-white print:border-b-2">
-        <div className="p-3 border-r border-gray-300 print:border-gray-300">
-          <div className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1">Client</div>
-          <input className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] print:text-black" value={certificate.client} onChange={e => handleMetaChange('client', e.target.value)} placeholder="Client name" />
+        <div className={`p-3 border-r border-gray-300 print:border-gray-300 ${!certificate.client?.trim() ? 'bg-red-50/30' : ''}`}>
+          <div className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1">Client <span className="text-red-600">*</span></div>
+          <input className={`w-full bg-transparent border-b ${!certificate.client?.trim() ? 'border-red-400' : 'border-transparent focus:border-blue-500'} outline-none text-sm font-semibold text-[#003d7a] print:text-black`} value={certificate.client} onChange={e => handleMetaChange('client', e.target.value)} placeholder="Client name" />
         </div>
         <div className="p-3 border-r border-gray-300 print:border-gray-300">
           <div className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1">Sample Type</div>
@@ -667,9 +678,9 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
           <div className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1">Date Reported</div>
           <input type="date" className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] print:text-black" value={certificate.dateReported} onChange={e => handleMetaChange('dateReported', e.target.value)} />
         </div>
-        <div className="p-3">
-          <div className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1">Sample Location</div>
-          <input className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] print:text-black" value={certificate.location} onChange={e => handleMetaChange('location', e.target.value)} placeholder="Location / source" />
+        <div className={`p-3 ${!certificate.location?.trim() ? 'bg-red-50/30' : ''}`}>
+          <div className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1">Sample Location <span className="text-red-600">*</span></div>
+          <input className={`w-full bg-transparent border-b ${!certificate.location?.trim() ? 'border-red-400' : 'border-transparent focus:border-blue-500'} outline-none text-sm font-semibold text-[#003d7a] print:text-black`} value={certificate.location} onChange={e => handleMetaChange('location', e.target.value)} placeholder="Location / source" />
         </div>
       </div>
 
@@ -867,6 +878,9 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
         <Button onClick={() => window.print()} size="sm" variant="secondary" className="shadow-lg bg-gray-200 text-black hover:bg-gray-300 h-8 px-3 text-xs">
           <Printer className="w-3.5 h-3.5 mr-1" /> Print
         </Button>
+        <Button onClick={() => setShowPreview(true)} size="sm" variant="secondary" className="shadow-lg bg-purple-200 text-purple-900 hover:bg-purple-300 h-8 px-3 text-xs font-semibold">
+          <Eye className="w-3.5 h-3.5 mr-1" /> Preview
+        </Button>
         <Button onClick={downloadPDF} size="sm" variant="secondary" className="shadow-lg bg-[#e8b400] text-black hover:bg-[#d4a200] h-8 px-3 text-xs font-semibold">
           <FileDown className="w-3.5 h-3.5 mr-1" /> PDF
         </Button>
@@ -874,6 +888,18 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
           <Download className="w-3.5 h-3.5 mr-1" /> CSV
         </Button>
       </div>
+
+      {/* PDF Preview Modal */}
+      <PDFPreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        onDownload={() => {
+          setShowPreview(false);
+          downloadPDF();
+        }}
+        title={certificate.certNumber}
+        pdfContent={generateCertificatePreviewHTML(certificate)}
+      />
 
       {/* Delete Confirmation Modal */}
       {rowToDelete !== null && (

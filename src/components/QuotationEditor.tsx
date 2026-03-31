@@ -4,11 +4,11 @@ import { DEFAULT_QUOTATION_ITEMS } from '../constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, X, Printer, Save, FileDown, Search } from 'lucide-react';
+import { Plus, X, Printer, Save, FileDown, Search, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import logo from '../assets/logo.png'; // Correctly import the logo
+import { PDFPreviewModal, generateQuotationPreviewHTML } from './PDFPreviewModal';
 
 interface Props {
   quotation: Quotation;
@@ -19,6 +19,7 @@ interface Props {
 
 export function QuotationEditor({ quotation, setQuotation, onSave, priceList }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [showPreview, setShowPreview] = useState(false);
 
   const updateTotals = (items: QuotationItem[]) => {
     const subtotal = items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
@@ -139,24 +140,51 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList }: 
 
   return (
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-      {/* Blue Header Section (Matches Certificate) */}
-      <div className="bg-[#003d7a] text-white p-6 relative">
-        <div className="flex items-center gap-6">
-          <div className="bg-white p-2 rounded-xl">
-             <img src={logo} alt="Logo" className="w-16 h-16 object-contain" />
+      {/* Header */}
+      <div className="bg-gradient-to-br from-[#002050] via-[#003d7a] to-[#004a94] text-white border-b-[3px] border-[#e8b400] print:border-b-2 print:bg-white print:text-black">
+        <div className="flex flex-col sm:flex-row items-center sm:items-stretch">
+          {/* Logo block */}
+          <div className="pt-5 pb-3 sm:py-5 px-5 flex items-center justify-center shrink-0">
+            <div className="bg-white rounded-2xl p-2.5 shadow-md print:shadow-none print:rounded-none print:p-0">
+              <img src="/logo.png" alt="Nkana Water and Sanitation Company" className="w-20 h-20 sm:w-[88px] sm:h-[88px] object-contain print:w-16 print:h-16" />
+            </div>
           </div>
-          <div className="flex-1">
-             <h2 className="text-xl font-black uppercase tracking-wider">NKANA WATER SUPPLY & SANITATION COMPANY</h2>
-             <div className="text-blue-200 text-xs font-bold uppercase tracking-widest mt-1">Laboratory Services Division</div>
-             <h1 className="text-3xl font-black text-white mt-2 border-b-2 border-[#e8b400] inline-block pb-1">SERVICE QUOTATION</h1>
+
+          {/* Title block */}
+          <div className="flex-1 min-w-0 px-4 sm:px-0 pb-5 sm:py-5 sm:pr-5 text-center sm:text-left flex flex-col justify-center">
+            <h1 className="text-base sm:text-xl md:text-2xl font-black tracking-wider uppercase leading-tight text-white print:text-black">
+              NKANA WATER SUPPLY AND SANITATION COMPANY
+            </h1>
+            <div className="text-[11px] text-blue-200/80 leading-relaxed mt-1 print:text-gray-700">
+              Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia.<br/>
+              Tel: +260 212 222488 / 221099 / 0971 223 458 &nbsp;|&nbsp; Fax: +260 212 222490<br/>
+              <a href="mailto:headoffice@nwsc.com.zm" className="hover:text-white underline print:text-black">headoffice@nwsc.com.zm</a>
+              {" | "}
+              <a href="http://www.nwsc.zm" target="_blank" rel="noreferrer" className="hover:text-white underline print:text-black">www.nwsc.zm</a>
+            </div>
+            <div className="mt-2.5 flex flex-col sm:flex-row sm:items-center gap-2">
+              <span className="inline-flex items-center self-center sm:self-auto px-2.5 py-1 rounded-md border border-[#e8b400]/60 bg-[#e8b400]/10 text-[#e8b400] text-[10px] font-bold tracking-widest uppercase print:border-gray-400 print:bg-transparent print:text-gray-700">
+                SHEQ DEPARTMENT
+              </span>
+              <span className="text-lg sm:text-xl md:text-2xl font-bold tracking-widest text-white/95 print:text-black">
+                SERVICE QUOTATION
+              </span>
+            </div>
           </div>
-          <div className="text-right">
-             <div className="text-[10px] text-blue-200 font-bold uppercase">Quote Number</div>
-             <Input 
-               className="bg-transparent border-none text-2xl font-black text-[#e8b400] text-right p-0 h-auto outline-none focus:ring-0" 
-               value={quotation.quoteNumber} 
-               onChange={e => handleMetaChange('quoteNumber', e.target.value)}
-             />
+
+          {/* Quote no. side column — desktop */}
+          <div className="hidden sm:flex p-5 flex-col items-end justify-center border-l border-white/10 shrink-0 print:border-none print:p-4">
+            <div className="bg-white/10 p-4 rounded-xl border border-white/15 shadow-inner print:bg-transparent print:border-none print:p-0 print:shadow-none min-w-[150px]">
+              <div className="flex flex-col items-end">
+                <div className="text-[10px] tracking-widest text-blue-200/80 uppercase font-semibold mb-0.5 print:text-gray-500">Quote Number</div>
+                <Input
+                  className="bg-transparent border-none text-[#e8b400] text-lg font-bold font-mono text-right w-full outline-none focus:ring-2 focus:ring-[#e8b400]/50 rounded transition-all print:text-black print:placeholder-gray-300"
+                  value={quotation.quoteNumber}
+                  onChange={e => handleMetaChange('quoteNumber', e.target.value)}
+                  placeholder="QT-001"
+                />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -164,16 +192,16 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList }: 
       {/* Meta Bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 bg-[#f8fbff] border-b divide-x">
          <div className="p-4">
-            <label className="text-[10px] font-black text-gray-400 uppercase">Client Name</label>
-            <Input className="h-8 border-none bg-transparent p-0 font-bold text-[#003d7a] focus:ring-0" value={quotation.client} onChange={e => handleMetaChange('client', e.target.value)} />
+            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Client Name</label>
+            <Input className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] focus:ring-0" value={quotation.client} onChange={e => handleMetaChange('client', e.target.value)} placeholder="Client name" />
          </div>
          <div className="p-4">
-            <label className="text-[10px] font-black text-gray-400 uppercase">Date</label>
-            <Input type="date" className="h-8 border-none bg-transparent p-0 font-bold text-[#003d7a] focus:ring-0" value={quotation.date} onChange={e => handleMetaChange('date', e.target.value)} />
+            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Date</label>
+            <Input type="date" className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] focus:ring-0" value={quotation.date} onChange={e => handleMetaChange('date', e.target.value)} />
          </div>
          <div className="p-4">
-            <label className="text-[10px] font-black text-gray-400 uppercase">Valid Until</label>
-            <Input type="date" className="h-8 border-none bg-transparent p-0 font-bold text-[#003d7a] focus:ring-0" value={quotation.validUntil} onChange={e => handleMetaChange('validUntil', e.target.value)} />
+            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Valid Until</label>
+            <Input type="date" className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] focus:ring-0" value={quotation.validUntil} onChange={e => handleMetaChange('validUntil', e.target.value)} />
          </div>
       </div>
 
@@ -271,8 +299,21 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList }: 
       {/* Footer Controls */}
       <div className="p-6 bg-gray-50 border-t flex justify-end gap-3">
          <Button onClick={onSave} className="bg-[#003d7a] hover:bg-[#002a5a] font-bold"><Save className="w-4 h-4 mr-2" /> Save Quote</Button>
+         <Button onClick={() => setShowPreview(true)} className="bg-purple-600 hover:bg-purple-700 font-bold"><Eye className="w-4 h-4 mr-2" /> Preview</Button>
          <Button onClick={exportPDF} className="bg-[#e8b400] hover:bg-[#d4a200] text-[#1a1a00] font-black"><Printer className="w-4 h-4 mr-2" /> Print PDF</Button>
       </div>
+
+      {/* PDF Preview Modal */}
+      <PDFPreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        onDownload={() => {
+          setShowPreview(false);
+          exportPDF();
+        }}
+        title={quotation.quoteNumber}
+        pdfContent={generateQuotationPreviewHTML(quotation)}
+      />
     </div>
   );
 }

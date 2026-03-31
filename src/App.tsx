@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import logo from './assets/logo.png';
 import { Certificate, Quotation, ServicePrice, RegulatoryLimit } from './types';
 import { DEFAULT_PARAMS, DEFAULT_QUOTATION_ITEMS, PARAMETER_PRICES, INITIAL_REGULATORY_LIMITS } from './constants';
+import { validateCertificate, validateQuotation, formatValidationErrors } from './utils/validation';
 import { CertificateEditor } from './components/CertificateEditor';
 import { SavedCertificates } from './components/SavedCertificates';
 import { QuotationEditor } from './components/QuotationEditor';
 import { SavedQuotations } from './components/SavedQuotations';
 import { PriceListManager } from './components/PriceListManager';
 import { RegulatoryManager } from './components/RegulatoryManager';
+import { WaterTypeManager } from './components/WaterTypeManager';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus, Save, Printer, FileText, FolderOpen, Database, ShieldCheck, Settings, Calculator, FileCheck } from 'lucide-react';
+import { Plus, Save, Printer, FileText, FolderOpen, Database, ShieldCheck, Settings, Calculator, FileCheck, Droplets } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
 type AppModule = 'certificates' | 'quotations';
@@ -80,6 +81,7 @@ export default function App() {
   const [currentQuotation, setCurrentQuotation] = useState<Quotation>(generateNewQuotation(0));
   const [priceList, setPriceList] = useState<ServicePrice[]>([]);
   const [regLimits, setRegLimits] = useState<RegulatoryLimit[]>([]);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
 
   // ── Load / Save persistence ──
   useEffect(() => {
@@ -105,16 +107,45 @@ export default function App() {
     localStorage.setItem("nkana_limits", JSON.stringify(regLimits));
   }, [regLimits]);
 
+  // ── Auto-save debounced (5 seconds) ──
+  useEffect(() => {
+    if (!autoSaveEnabled) return;
+    const timer = setTimeout(() => {
+      const autoCert = { ...currentCert, savedAt: new Date().toISOString() };
+      const existing = savedCerts.filter(c => c.id !== autoCert.id);
+      localStorage.setItem("nkana_certs", JSON.stringify([autoCert, ...existing]));
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [currentCert, autoSaveEnabled, savedCerts]);
+
+  useEffect(() => {
+    if (!autoSaveEnabled) return;
+    const timer = setTimeout(() => {
+      const autoQuote = { ...currentQuotation, savedAt: new Date().toISOString() };
+      const existing = savedQuotations.filter(q => q.id !== autoQuote.id);
+      localStorage.setItem("nkana_quotes", JSON.stringify([autoQuote, ...existing]));
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [currentQuotation, autoSaveEnabled, savedQuotations]);
+
   const saveCertsToStorage = (certs: Certificate[]) => { 
     localStorage.setItem("nkana_certs", JSON.stringify(certs)); 
     setSavedCerts(certs); 
   };
   const handleSaveCert = () => {
+    // Comprehensive validation
+    const errors = validateCertificate(currentCert);
+    if (errors.length > 0) {
+      const errorMsg = formatValidationErrors(errors);
+      toast.error(errorMsg);
+      return;
+    }
+    
     const newCert = { ...currentCert, savedAt: new Date().toISOString() };
     const up = savedCerts.filter(c => c.id !== newCert.id);
     saveCertsToStorage([newCert, ...up]);
     setCurrentCert(newCert);
-    toast.success("Certificate saved!");
+    toast.success("Certificate saved successfully!");
   };
 
   const saveQuotesToStorage = (quotes: Quotation[]) => { 
@@ -122,11 +153,19 @@ export default function App() {
     setSavedQuotations(quotes); 
   };
   const handleSaveQuote = () => {
+    // Comprehensive validation
+    const errors = validateQuotation(currentQuotation);
+    if (errors.length > 0) {
+      const errorMsg = formatValidationErrors(errors);
+      toast.error(errorMsg);
+      return;
+    }
+    
     const newQuote = { ...currentQuotation, savedAt: new Date().toISOString() };
     const up = savedQuotations.filter(q => q.id !== newQuote.id);
     saveQuotesToStorage([newQuote, ...up]);
     setCurrentQuotation(newQuote);
-    toast.success("Quotation saved!");
+    toast.success("Quotation saved successfully!");
   };
 
   const handleNew = () => {
@@ -143,7 +182,7 @@ export default function App() {
         <div className="max-w-[1440px] mx-auto px-4 h-16 flex items-center justify-between gap-4">
            {/* Brand (Logo Fixed) */}
            <div className="flex items-center gap-3">
-              <img src={logo} alt="Logo" className="w-9 h-9 object-contain bg-white rounded-full p-0.5" />
+              <img src="/logo.png" alt="Logo" className="w-9 h-9 object-contain bg-white rounded-full p-0.5" />
               <div>
                  <h1 className="text-[10px] font-black uppercase tracking-widest text-[#e8b400] leading-none">NKANA WATER & SEWERAGE CO.</h1>
                  <p className="text-[13px] font-bold text-white/90 truncate">Laboratory Information Management</p>
@@ -181,7 +220,10 @@ export default function App() {
             <TabsTrigger value="editor" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]"><FileText className="w-4 h-4 mr-2" /> Editor</TabsTrigger>
             <TabsTrigger value="saved" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]"><FolderOpen className="w-4 h-4 mr-2" /> Saved Items</TabsTrigger>
             {activeModule === 'certificates' && (
-              <TabsTrigger value="regulatory" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]"><ShieldCheck className="w-4 h-4 mr-2" /> Standards DB</TabsTrigger>
+              <>
+                <TabsTrigger value="watertype" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]"><Droplets className="w-4 h-4 mr-2" /> Water Types</TabsTrigger>
+                <TabsTrigger value="regulatory" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]"><ShieldCheck className="w-4 h-4 mr-2" /> Standards DB</TabsTrigger>
+              </>
             )}
             {activeModule === 'quotations' && (
               <TabsTrigger value="database" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]"><Database className="w-4 h-4 mr-2" /> Price List</TabsTrigger>
@@ -202,6 +244,10 @@ export default function App() {
             ) : (
               <SavedQuotations quotations={savedQuotations} onLoad={(id) => { const q = savedQuotations.find(q => q.id === id); if (q) { setCurrentQuotation({ ...q }); setActiveTab("editor"); } }} onDelete={(id) => { if (confirm("Delete?")) { const up = savedQuotations.filter(q => q.id !== id); saveQuotesToStorage(up); if (currentQuotation.id === id) handleNew(); } }} onClearAll={() => { if (confirm("Clear?")) saveQuotesToStorage([]); }} />
             )}
+          </TabsContent>
+
+          <TabsContent value="watertype" className="mt-0 print:hidden">
+            <WaterTypeManager limits={regLimits} setLimits={setRegLimits} />
           </TabsContent>
 
           <TabsContent value="regulatory" className="mt-0 print:hidden">

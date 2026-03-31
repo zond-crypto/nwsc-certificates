@@ -1,2 +1,2 @@
-import nwscLogo from './assets/logo.png';
-export default nwscLogo;
+// Logo is now served from public/logo.png
+export default '/logo.png';
