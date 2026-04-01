@@ -106,6 +106,8 @@ export function generateCertificatePreviewHTML(cert: Certificate): string {
         <div>
           <p class="text-xs text-gray-500 uppercase font-bold">Client</p>
           <p class="font-semibold">${cert.client}</p>
+          ${cert.clientPhone ? `<p class="text-xs text-gray-600">📞 ${cert.clientPhone}</p>` : ''}
+          ${cert.clientEmail ? `<p class="text-xs text-gray-600">📧 ${cert.clientEmail}</p>` : ''}
         </div>
         <div>
           <p class="text-xs text-gray-500 uppercase font-bold">Sample Type</p>
@@ -182,6 +184,8 @@ export function generateQuotationPreviewHTML(quote: Quotation): string {
         <div>
           <p class="text-xs text-gray-500 uppercase font-bold">Client</p>
           <p class="font-semibold">${quote.client}</p>
+          ${quote.clientPhone ? `<p class="text-xs text-gray-600">📞 ${quote.clientPhone}</p>` : ''}
+          ${quote.clientEmail ? `<p class="text-xs text-gray-600">📧 ${quote.clientEmail}</p>` : ''}
         </div>
         <div>
           <p class="text-xs text-gray-500 uppercase font-bold">Date</p>

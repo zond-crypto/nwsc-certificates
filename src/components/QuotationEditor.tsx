@@ -276,10 +276,18 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
       </div>
 
       {/* Meta Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-3 bg-[#f8fbff] border-b divide-x">
+      <div className="grid grid-cols-1 md:grid-cols-5 bg-[#f8fbff] border-b divide-x">
          <div className="p-4">
             <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Client Name</label>
             <Input className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] focus:ring-0" value={quotation.client} onChange={e => handleMetaChange('client', e.target.value)} placeholder="Client name" />
+         </div>
+         <div className="p-4">
+            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Phone</label>
+            <Input className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] focus:ring-0" value={quotation.clientPhone || ''} onChange={e => handleMetaChange('clientPhone', e.target.value)} placeholder="+260 212 222488" />
+         </div>
+         <div className="p-4">
+            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Email</label>
+            <Input className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] focus:ring-0" value={quotation.clientEmail || ''} onChange={e => handleMetaChange('clientEmail', e.target.value)} placeholder="client@email.com" />
          </div>
          <div className="p-4">
             <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Date</label>

@@ -750,6 +750,14 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
           <input className={`w-full bg-transparent border-b ${!certificate.client?.trim() ? 'border-red-400' : 'border-transparent focus:border-blue-500'} outline-none text-sm font-semibold text-[#003d7a] print:text-black`} value={certificate.client} onChange={e => handleMetaChange('client', e.target.value)} placeholder="Client name" />
         </div>
         <div className="p-3 border-r border-gray-300 print:border-gray-300">
+          <div className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1">Phone</div>
+          <input className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] print:text-black" value={certificate.clientPhone || ''} onChange={e => handleMetaChange('clientPhone', e.target.value)} placeholder="+260 212 222488" />
+        </div>
+        <div className="p-3 border-r border-gray-300 print:border-gray-300">
+          <div className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1">Email</div>
+          <input className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] print:text-black" value={certificate.clientEmail || ''} onChange={e => handleMetaChange('clientEmail', e.target.value)} placeholder="client@email.com" />
+        </div>
+        <div className="p-3 border-r border-gray-300 print:border-gray-300">
           <div className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1">Sample Type</div>
           <select className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] print:text-black print:appearance-none" value={certificate.sampleType} onChange={e => handleMetaChange('sampleType', e.target.value)}>
             <option value="Drinking Water">Drinking Water</option>
@@ -762,10 +770,6 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
         <div className="p-3 border-r border-gray-300 print:border-gray-300">
           <div className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1">Date Sampled</div>
           <input type="date" className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] print:text-black" value={certificate.dateSampled} onChange={e => handleMetaChange('dateSampled', e.target.value)} />
-        </div>
-        <div className="p-3 border-r border-gray-300 print:border-gray-300">
-          <div className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1">Date Reported</div>
-          <input type="date" className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] print:text-black" value={certificate.dateReported} onChange={e => handleMetaChange('dateReported', e.target.value)} />
         </div>
         <div className={`p-3 ${!certificate.location?.trim() ? 'bg-red-50/30' : ''}`}>
           <div className="text-[10px] font-bold tracking-widest text-gray-500 uppercase mb-1">Sample Location <span className="text-red-600">*</span></div>

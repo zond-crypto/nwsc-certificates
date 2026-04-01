@@ -14,6 +14,8 @@ export type Certificate = {
   id: string;
   certNumber: string;
   client: string;
+  clientPhone?: string;
+  clientEmail?: string;
   sampleType: string;
   dateSampled: string;
   dateReported: string;
@@ -45,6 +47,8 @@ export type Quotation = {
   id: string;
   quoteNumber: string;
   client: string;
+  clientPhone?: string;
+  clientEmail?: string;
   clientAddress: string;
   date: string;
   validUntil: string;
