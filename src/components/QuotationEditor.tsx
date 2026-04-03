@@ -429,7 +429,7 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
       {/* Items Table */}
       <div className="p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-black text-[#003d7a]">QUOTATION ITEMS</h3>}
+          <h3 className="text-lg font-black text-[#003d7a]">QUOTATION ITEMS</h3>
           <Button onClick={addItem} size="sm" className="bg-[#003d7a] hover:bg-[#002a5a] text-xs"><Plus className="w-3 h-3 mr-1"/> Add Item</Button>
         </div>
 
