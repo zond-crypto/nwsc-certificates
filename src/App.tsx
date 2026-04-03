@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Certificate, Quotation, ServicePrice, RegulatoryLimit } from './types';
 import { DEFAULT_PARAMS, DEFAULT_QUOTATION_ITEMS, PARAMETER_PRICES, INITIAL_REGULATORY_LIMITS } from './constants';
 import { validateCertificate, validateQuotation, formatValidationErrors } from './utils/validation';
+import { generateQuotationCode, calculateExpiryDate } from './utils/quotationUtils';
 import { CertificateEditor } from './components/CertificateEditor';
 import { SavedCertificates } from './components/SavedCertificates';
 import { QuotationEditor } from './components/QuotationEditor';
@@ -57,15 +58,20 @@ function generateNewQuotation(count: number): Quotation {
   const items = JSON.parse(JSON.stringify(DEFAULT_QUOTATION_ITEMS));
   const subtotal = items.reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
   const totalTax = subtotal * 0.16;
+  const issueDate = new Date();
+  const expiryDate = calculateExpiryDate(issueDate);
+
   return {
     id: Date.now().toString(),
     quoteNumber: `QT-${String(count + 1).padStart(3, "0")}`,
+    quotationCode: undefined, // Will be generated on save
     client: "",
     clientPhone: "",
     clientEmail: "",
     clientAddress: "",
-    date: new Date().toISOString().slice(0, 10),
-    validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    date: issueDate.toISOString().slice(0, 10),
+    validUntil: expiryDate.toISOString().slice(0, 10),
+    expiryDate: expiryDate.toISOString(),
     items: items,
     subtotal: subtotal,
     totalTax: totalTax,
@@ -74,7 +80,8 @@ function generateNewQuotation(count: number): Quotation {
     sign1Title: "SHEQ MANAGER",
     sign2Name: "",
     sign2Title: "LABORATORY TECHNOLOGIST",
-    savedAt: new Date().toISOString()
+    savedAt: new Date().toISOString(),
+    status: 'draft'
   };
 }
 
@@ -165,7 +172,7 @@ export default function App() {
     localStorage.setItem("nkana_quotes", JSON.stringify(quotes)); 
     setSavedQuotations(quotes); 
   };
-  const handleSaveQuote = () => {
+  const handleSaveQuote = async () => {
     // Comprehensive validation
     const errors = validateQuotation(currentQuotation);
     if (errors.length > 0) {
@@ -173,8 +180,34 @@ export default function App() {
       toast.error(errorMsg);
       return;
     }
-    
-    const newQuote = { ...currentQuotation, savedAt: new Date().toISOString() };
+
+    // Generate quotation code if not already set
+    let quotationCode = currentQuotation.quotationCode;
+    if (!quotationCode) {
+      // Mock function to get last sequence - in real app this would query database
+      const getLastSequenceForMonth = async (yearMonth: string) => {
+        const existingCodes = savedQuotations
+          .filter(q => q.quotationCode?.startsWith(`QT-${yearMonth}`))
+          .map(q => {
+            const match = q.quotationCode?.match(/QT-\d{6}-(\d{4})/);
+            return match ? parseInt(match[1]) : 0;
+          });
+        return existingCodes.length > 0 ? Math.max(...existingCodes) : 0;
+      };
+
+      quotationCode = await generateQuotationCode(getLastSequenceForMonth, new Date(currentQuotation.date));
+    }
+
+    // Calculate expiry date if not set
+    const expiryDate = currentQuotation.expiryDate || calculateExpiryDate(new Date(currentQuotation.date)).toISOString();
+
+    const newQuote = {
+      ...currentQuotation,
+      quotationCode,
+      expiryDate,
+      savedAt: new Date().toISOString()
+    };
+
     const up = savedQuotations.filter(q => q.id !== newQuote.id);
     saveQuotesToStorage([newQuote, ...up]);
     setCurrentQuotation(newQuote);

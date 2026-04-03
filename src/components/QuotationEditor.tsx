@@ -10,6 +10,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { buildDocumentFilename } from '../utils/fileNaming';
 import { PDFPreviewModal, generateQuotationPreviewHTML } from './PDFPreviewModal';
+import { calculateExpiryDate, formatDisplayDate, getExpiryWarningMessage } from '../utils/quotationUtils';
 
 interface Props {
   quotation: Quotation;
@@ -25,6 +26,9 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
   const [selectedSign1Id, setSelectedSign1Id] = useState(quotation.sign1SignatureId || '');
   const [selectedSign2Id, setSelectedSign2Id] = useState(quotation.sign2SignatureId || '');
 
+  // Calculate expiry warning
+  const expiryWarning = quotation.expiryDate ? getExpiryWarningMessage(quotation.expiryDate) : null;
+
   const updateTotals = (items: QuotationItem[]) => {
     const subtotal = items.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
     const totalTax = subtotal * 0.16;
@@ -37,9 +41,21 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
     }));
   };
 
-  const handleMetaChange = (field: keyof Quotation, value: string) => {
-    setQuotation(prev => ({ ...prev, [field]: value }));
-  };
+  const handleMetaChange = useCallback((field: keyof Quotation, value: string) => {
+    setQuotation(prev => {
+      const updated = { ...prev, [field]: value };
+
+      // Auto-calculate expiry date when date changes
+      if (field === 'date' && value) {
+        const issueDate = new Date(value);
+        const expiryDate = calculateExpiryDate(issueDate);
+        updated.expiryDate = expiryDate.toISOString();
+        updated.validUntil = expiryDate.toISOString().split('T')[0];
+      }
+
+      return updated;
+    });
+  }, []);
 
   useEffect(() => {
     setSelectedSign1Id(quotation.sign1SignatureId || '');
@@ -128,9 +144,13 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(10);
     doc.text(`Quote No: ${quotation.quoteNumber}`, 15, 50);
+    if (quotation.quotationCode) {
+      doc.text(`Code: ${quotation.quotationCode}`, 15, 55);
+    }
     doc.text(`Date: ${quotation.date}`, 150, 50);
-    doc.text(`Client: ${quotation.client}`, 15, 60);
-    doc.text(`Address: ${quotation.clientAddress}`, 15, 65);
+    doc.text(`Valid Until: ${quotation.validUntil}`, 150, 55);
+    doc.text(`Client: ${quotation.client}`, 15, 65);
+    doc.text(`Address: ${quotation.clientAddress}`, 15, 70);
 
     // Table
     const body = quotation.items.map((item, idx) => [
@@ -164,12 +184,18 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
     doc.text(`GRAND TOTAL:`, 140, finalY + 16);
     doc.text(formatCurrency(quotation.totalAmount), 180, finalY + 16, { align: 'right' });
 
-    const signY = finalY + 30;
-    if (quotation.sign1SignatureImage) {
-      try {
-        doc.addImage(quotation.sign1SignatureImage, 'PNG', 20, signY, 40, 15);
-      } catch {}
-    }
+    // Add watermark
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    doc.saveGraphicsState();
+    doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
+    doc.setFontSize(48);
+    doc.setTextColor(200, 200, 200);
+    doc.text("NKANA WATER", pageWidth / 2, pageHeight / 2, { align: "center", angle: 45 });
+    doc.restoreGraphicsState();
+
+    // Signatures
+    const signY = finalY + 35;
     doc.setFont('helvetica', 'bold');
     doc.text(quotation.sign1Name || 'Name', 40, signY + 22, { align: 'center' });
     doc.setFont('helvetica', 'normal');
@@ -194,7 +220,11 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
     csv += `,,,...\n`;
 
     csv += `Quote No:,"${quotation.quoteNumber}",Client:,"${quotation.client}",Date:,"${quotation.date}"\n`;
-    csv += `Valid Until:,"${quotation.validUntil}",,,\n`;
+    if (quotation.quotationCode) {
+      csv += `Code:,"${quotation.quotationCode}",Valid Until:,"${quotation.validUntil}",,\n`;
+    } else {
+      csv += `Valid Until:,"${quotation.validUntil}",,,\n`;
+    }
     csv += `,,,...\n`;
 
     csv += `#,Description,Qty,Unit Price,Tax (16%),Subtotal\n`;
@@ -274,6 +304,22 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
           </div>
         </div>
       </div>
+
+      {/* Expiry Warning Banner */}
+      {expiryWarning && (
+        <div className="bg-orange-50 border-l-4 border-orange-400 p-4 mx-4 rounded-r-lg">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-orange-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-orange-800 font-medium">{expiryWarning}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Meta Bar */}
       <div className="grid grid-cols-1 md:grid-cols-5 bg-[#f8fbff] border-b divide-x">

@@ -36,11 +36,16 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
   const [selectedSign2Id, setSelectedSign2Id] = useState(certificate.sign2SignatureId || '');
 
   const printMeasureRef = useRef<HTMLDivElement>(null);
-  const [printPages, setPrintPages] = useState<Array<Array<Parameter | { section: string }>>>([]);
+  const [printPages, setPrintPages] = useState<Array<Array<{ row: Parameter | { section: string }; idx: number }>>>([]);
+  const [oversizedRowIndexes, setOversizedRowIndexes] = useState<number[]>([]);
 
   const PAGE_HEIGHT_LIMIT = 1120; // px for print page total usable height
-  const PAGE_HEADER_HEIGHT = 220; // approximate rendered header size
-  const PAGE_FOOTER_HEIGHT = 35;
+  const PAGE_HEADER_HEIGHT_FIRST = 240; // includes certificate metadata + header on first page
+  const PAGE_HEADER_HEIGHT_CONTINUATION = 120; // header + repeated table title on continuation pages
+  const PAGE_FOOTER_HEIGHT = 45;
+
+  const SAFE_HEIGHT_FIRST = PAGE_HEIGHT_LIMIT - PAGE_HEADER_HEIGHT_FIRST - PAGE_FOOTER_HEIGHT;
+  const SAFE_HEIGHT_CONTINUATION = PAGE_HEIGHT_LIMIT - PAGE_HEADER_HEIGHT_CONTINUATION - PAGE_FOOTER_HEIGHT;
 
   // ── Auto-apply Regulatory Limits ───────────────────────────────────────
   useEffect(() => {
@@ -302,38 +307,90 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
   useLayoutEffect(() => {
     if (!printMeasureRef.current) return;
 
-    const container = printMeasureRef.current;
-    const pages: Array<Array<Parameter | { section: string }>> = [];
-    let currentPage: Array<Parameter | { section: string }> = [];
-    let currentHeight = PAGE_HEADER_HEIGHT;
+    const rowHeights: number[] = [];
+    const hugeRows: number[] = [];
+
+    const measureRows = printMeasureRef.current.querySelectorAll<HTMLTableRowElement>('tr[data-print-row-index]');
+    measureRows.forEach(rowEl => {
+      const idx = Number(rowEl.dataset.printRowIndex);
+      const height = Math.ceil(rowEl.getBoundingClientRect().height);
+      rowHeights[idx] = height;
+    });
+
+    const pages: Array<Array<{ row: Parameter | { section: string }; idx: number }>> = [];
+    let currentPage: Array<{ row: Parameter | { section: string }; idx: number }> = [];
+    let currentHeight = 0;
+    let availableHeight = SAFE_HEIGHT_FIRST;
+    let isFirstPage = true;
 
     certificate.tableData.forEach((row, idx) => {
-      const rowHeight = row.section ? 25 : 20; // Section headers are taller
+      const rawHeight = rowHeights[idx] || (row.section ? 26 : 22);
+      const rowHeight = rawHeight + 2; // small gap/border cushion
+      const cap = isFirstPage ? SAFE_HEIGHT_FIRST : SAFE_HEIGHT_CONTINUATION;
 
-      if (currentHeight + rowHeight > PAGE_HEIGHT_LIMIT - PAGE_FOOTER_HEIGHT) {
-        if (currentPage.length > 0) {
-          pages.push(currentPage);
-          currentPage = [];
-          currentHeight = PAGE_HEADER_HEIGHT;
-        }
+      if (rowHeight > cap) {
+        hugeRows.push(idx);
       }
 
-      currentPage.push(row);
-      currentHeight += rowHeight;
+      if (currentHeight + rowHeight > availableHeight && currentPage.length > 0) {
+        pages.push(currentPage);
+        currentPage = [];
+        currentHeight = 0;
+        isFirstPage = false;
+        availableHeight = SAFE_HEIGHT_CONTINUATION;
+      }
+
+      if (rowHeight > availableHeight && currentPage.length === 0) {
+        // This row cannot fit with normal formatting; put it on its own page.
+        pages.push([{ row, idx }]);
+        isFirstPage = false;
+        availableHeight = SAFE_HEIGHT_CONTINUATION;
+        currentHeight = 0;
+        return;
+      }
+
+      if (currentHeight + rowHeight > availableHeight) {
+        // Start a new page if it still doesn't fit.
+        pages.push(currentPage);
+        currentPage = [{ row, idx }];
+        currentHeight = rowHeight;
+        isFirstPage = false;
+        availableHeight = SAFE_HEIGHT_CONTINUATION;
+      } else {
+        currentPage.push({ row, idx });
+        currentHeight += rowHeight;
+      }
+
+      if (!isFirstPage && currentPage.length === 1 && currentHeight === rowHeight) {
+        // no-op, just mark that subsequent pages used
+      }
+
+      if (isFirstPage && currentHeight >= availableHeight) {
+        pages.push(currentPage);
+        currentPage = [];
+        currentHeight = 0;
+        isFirstPage = false;
+        availableHeight = SAFE_HEIGHT_CONTINUATION;
+      }
     });
 
     if (currentPage.length > 0) {
       pages.push(currentPage);
     }
 
+    setOversizedRowIndexes(hugeRows);
     setPrintPages(pages);
-  }, [certificate.tableData]);
+  }, [certificate.tableData, certificate.samples, certificate.sampleType]);
 
   const limitHeader = certificate.sampleType === 'Drinking Water' ? 'WHO Limit' :
                       certificate.sampleType === 'Wastewater' ? 'ZABS Limit' : 'Limit';
 
+  // Debug overlay for development mode
+  const isDev = true; // TODO: Replace with proper dev mode check
+
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 print:shadow-none print:border-none">
+    <div className="relative">
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200 print:hidden">
       <style>{`
         .page { page-break-after: always; }
         .page:last-child { page-break-after: auto; }
@@ -675,6 +732,148 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
         </div>
       )}
     </div>
+
+    {/* Debug overlay for development mode - shows page breaks visually */}
+    {isDev && printPages.length > 0 && (
+      <div className="fixed inset-0 pointer-events-none z-40 print:hidden">
+        <div className="absolute top-0 left-0 w-full h-full bg-black/5 flex flex-col">
+          {printPages.map((page, pageIndex) => {
+            const pageHeight = pageIndex === 0 ? SAFE_HEIGHT_FIRST : SAFE_HEIGHT_CONTINUATION;
+            const topOffset = pageIndex === 0 ? PAGE_HEADER_HEIGHT_FIRST : PAGE_HEADER_HEIGHT_CONTINUATION;
+            const totalHeight = topOffset + pageHeight;
+
+            return (
+              <div
+                key={`debug-page-${pageIndex}`}
+                className="relative border-2 border-dashed border-red-500 bg-red-500/10"
+                style={{
+                  height: `${totalHeight}px`,
+                  marginBottom: pageIndex < printPages.length - 1 ? '20px' : '0',
+                }}
+              >
+                <div className="absolute -top-6 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
+                  Page {pageIndex + 1} of {printPages.length}
+                </div>
+                <div className="absolute -bottom-6 left-2 bg-red-600 text-white px-2 py-1 rounded text-xs font-bold">
+                  Break after {page.length} rows
+                </div>
+                {page.some(({ idx }) => oversizedRowIndexes.includes(idx)) && (
+                  <div className="absolute top-2 right-2 bg-orange-500 text-white px-2 py-1 rounded text-xs font-bold">
+                    ⚠️ Oversized row(s)
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <div className="absolute top-4 right-4 bg-black/80 text-white px-3 py-2 rounded-lg text-sm font-mono">
+          <div>Pages: {printPages.length}</div>
+          <div>Total rows: {certificate.tableData.length}</div>
+          <div>Oversized: {oversizedRowIndexes.length}</div>
+        </div>
+      </div>
+    )}
+
+    {/* Print-only paginated Certificate view */}
+    <div className="hidden print:block">
+      <div
+        ref={printMeasureRef}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: '-10000px',
+          width: '210mm',
+          visibility: 'hidden',
+          pointerEvents: 'none',
+          zIndex: -1,
+        }}
+        aria-hidden="true"
+      >
+        <table className="w-full border-collapse text-[9px]">
+          <tbody>
+            {certificate.tableData.map((row, idx) => (
+              row.section ? (
+                <tr key={`measure-section-${idx}`} data-print-row-index={idx}>
+                  <td style={{ padding: '6px', fontWeight: 700 }} colSpan={3 + certificate.samples.length}>{row.section}</td>
+                </tr>
+              ) : (
+                <tr key={`measure-row-${idx}`} data-print-row-index={idx}>
+                  <td style={{ padding: '6px' }}>{row.name || ' '}</td>
+                  <td style={{ padding: '6px' }}>{row.unit || ' '}</td>
+                  <td style={{ padding: '6px' }}>{row.limit || ' '}</td>
+                  {certificate.samples.map((s, ci) => (
+                    <td key={ci} style={{ padding: '6px' }}>{row.results[ci] || ' '}</td>
+                  ))}
+                </tr>
+              )
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {printPages.map((page, pageIndex) => (
+        <div key={`coa-page-${pageIndex}`} className="coa-page page m-0 p-0" style={{ pageBreakAfter: 'always' }}>
+          <div className="border-b border-gray-300 p-3">
+            <div className="mb-2 text-xs leading-tight uppercase font-black">NKANA WATER SUPPLY AND SANITATION COMPANY</div>
+            <div className="mb-1 text-[9px]">Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia.</div>
+            <div className="mb-3 text-[9px]">Tel: +260 212 222488 / 221099 / 0971 223 458 | Fax: +260 212 222490</div>
+            <div className="grid grid-cols-2 gap-2 text-[9px] mb-3">
+              <div><strong>Certificate No:</strong> {certificate.certNumber}</div>
+              <div><strong>Date:</strong> {certificate.dateReported}</div>
+              <div><strong>Client:</strong> {certificate.client}</div>
+              <div><strong>Sample Type:</strong> {certificate.sampleType}</div>
+              <div className="col-span-2"><strong>Sample Source:</strong> {certificate.location}</div>
+            </div>
+          </div>
+
+          <table className="w-full border-collapse text-[9px]">
+            <thead>
+              <tr className="bg-[#003d7a] text-white">
+                <th className="border border-gray-300 p-2 text-left">#</th>
+                <th className="border border-gray-300 p-2 text-left">Parameter</th>
+                <th className="border border-gray-300 p-2 text-center">Unit</th>
+                <th className="border border-gray-300 p-2 text-center">{limitHeader}</th>
+                {certificate.samples.map((sample, idx) => (
+                  <th key={idx} className="border border-gray-300 p-2 text-center">{sample}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {page.map(({ row, idx }, rowIndex) => {
+                if ('section' in row) {
+                  return (
+                    <tr key={`section-${idx}`} className="bg-gray-200 font-bold uppercase text-[8px]">
+                      <td colSpan={4 + certificate.samples.length} className="border border-gray-300 p-2">{row.section}</td>
+                    </tr>
+                  );
+                }
+
+                const isOversized = oversizedRowIndexes.includes(idx);
+                return (
+                  <tr key={`row-${idx}`} className={isOversized ? 'text-[7px]' : 'text-[8px]'}>
+                    <td className="border border-gray-300 p-2 text-center">{rowIndex + 1}</td>
+                    <td className="border border-gray-300 p-2 break-words">{row.name}</td>
+                    <td className="border border-gray-300 p-2 text-center">{row.unit}</td>
+                    <td className="border border-gray-300 p-2 text-center">{row.limit}</td>
+                    {certificate.samples.map((s, sampleIdx) => (
+                      <td key={sampleIdx} className="border border-gray-300 p-2 text-center break-words">{row.results[sampleIdx] || '—'}</td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <div className="border-t border-gray-400 p-2 text-[9px] mt-2">
+            <div className="flex justify-between">
+              <span><strong>Bigger, Better, Smarter</strong></span>
+              <span>Page {pageIndex + 1} of {printPages.length}</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
   );
 }
 

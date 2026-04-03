@@ -46,12 +46,14 @@ export type QuotationItem = {
 export type Quotation = {
   id: string;
   quoteNumber: string;
+  quotationCode?: string; // Unique code like QT-YYYYMM-XXXX
   client: string;
   clientPhone?: string;
   clientEmail?: string;
   clientAddress: string;
   date: string;
   validUntil: string;
+  expiryDate?: string; // Auto-calculated expiry date
   items: QuotationItem[];
   subtotal: number;
   totalTax: number;
@@ -65,6 +67,7 @@ export type Quotation = {
   sign1SignatureImage?: string;
   sign2SignatureImage?: string;
   savedAt: string;
+  status?: string; // draft, sent, accepted, rejected, expired
 };
 
 export type Signature = {
