@@ -52,10 +52,10 @@ export const PARAMETER_PRICES = [
 ];
 
 export const INITIAL_REGULATORY_LIMITS: RegulatoryLimit[] = [
-  { id: 'rl1', waterType: 'Drinking', regulatoryBody: 'ZABS', parameterName: 'pH', limitValue: '6.5 – 8.5', unit: '' },
-  { id: 'rl2', waterType: 'Drinking', regulatoryBody: 'ZABS', parameterName: 'Turbidity', limitValue: '≤ 1', unit: 'NTU' },
-  { id: 'rl3', waterType: 'Treated Effluent', regulatoryBody: 'ZEMA', parameterName: 'pH', limitValue: '6.0 – 9.0', unit: '' },
-  { id: 'rl4', waterType: 'Treated Effluent', regulatoryBody: 'ZEMA', parameterName: 'COD', limitValue: '≤ 90', unit: 'mg/L' },
+  { id: 'rl1', regulatoryBody: 'ZABS', parameterName: 'pH', limitValue: '6.5 – 8.5', unit: '' },
+  { id: 'rl2', regulatoryBody: 'ZABS', parameterName: 'Turbidity', limitValue: '≤ 1', unit: 'NTU' },
+  { id: 'rl3', regulatoryBody: 'ZEMA', parameterName: 'pH', limitValue: '6.0 – 9.0', unit: '' },
+  { id: 'rl4', regulatoryBody: 'ZEMA', parameterName: 'COD', limitValue: '≤ 90', unit: 'mg/L' },
 ];
 
 export const DEFAULT_QUOTATION_ITEMS: QuotationItem[] = [

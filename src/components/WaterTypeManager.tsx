@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { WaterType, RegulatoryLimit } from '../types';
+import { RegulatoryLimit } from '../types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,15 +11,15 @@ interface Props {
   setLimits: React.Dispatch<React.SetStateAction<RegulatoryLimit[]>>;
 }
 
-const WATER_TYPES: WaterType[] = ['Drinking', 'Borehole', 'Surface', 'Treated Effluent', 'Waste Water'];
+const REG_BODIES = ['ZABS', 'ZEMA'] as const;
+type RegulatoryBody = (typeof REG_BODIES)[number];
 
 export function WaterTypeManager({ limits, setLimits }: Props) {
-  const [selectedWaterType, setSelectedWaterType] = useState<WaterType>('Drinking');
+  const [selectedBody, setSelectedBody] = useState<RegulatoryBody>('ZABS');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState({ parameterName: "", limitValue: "", unit: "" });
 
-  const waterTypeLimits = limits.filter(l => l.waterType === selectedWaterType);
-  const regulatoryBody = selectedWaterType.includes('Effluent') || selectedWaterType.includes('Waste') ? 'ZEMA' : 'ZABS';
+  const filteredLimits = limits.filter(l => l.regulatoryBody === selectedBody);
 
   const startEdit = (limit: RegulatoryLimit) => {
     setEditingId(limit.id);
@@ -50,8 +50,7 @@ export function WaterTypeManager({ limits, setLimits }: Props) {
   const addNewParam = () => {
     const newParam: RegulatoryLimit = {
       id: `wl${Date.now()}`,
-      waterType: selectedWaterType,
-      regulatoryBody: regulatoryBody,
+      regulatoryBody: selectedBody,
       parameterName: "New Parameter",
       limitValue: "",
       unit: "mg/L"
@@ -63,29 +62,29 @@ export function WaterTypeManager({ limits, setLimits }: Props) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-black text-[#003d7a] uppercase mb-4">Water Type Configuration</h2>
-        <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-6">Manage parameters and quality standards for each water category</p>
+        <h2 className="text-2xl font-black text-[#003d7a] uppercase mb-4">Regulatory Standards Manager</h2>
+        <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-6">Select body and manage quality parameters</p>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-6">
-          {WATER_TYPES.map(wt => (
+          {REG_BODIES.map(body => (
             <button
-              key={wt}
-              onClick={() => setSelectedWaterType(wt)}
+              key={body}
+              onClick={() => setSelectedBody(body)}
               className={`p-3 rounded-xl border-2 transition-all text-sm font-bold uppercase ${
-                selectedWaterType === wt
+                selectedBody === body
                   ? 'bg-[#003d7a] text-white border-[#003d7a]'
                   : 'bg-white text-[#003d7a] border-gray-200 hover:border-[#003d7a]'
               }`}
             >
-              {wt}
+              {body}
             </button>
           ))}
         </div>
 
         <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 mb-6 flex justify-between items-center">
           <div>
-            <div className="text-sm font-black text-[#003d7a]">{selectedWaterType} Water Quality Standards</div>
-            <div className="text-xs text-gray-600 mt-1">Managed by: <span className="font-bold">{regulatoryBody}</span></div>
+            <div className="text-sm font-black text-[#003d7a]">{selectedBody} Standards</div>
+            <div className="text-xs text-gray-600 mt-1">Managed by: <span className="font-bold">{selectedBody}</span></div>
           </div>
           <Button onClick={addNewParam} className="bg-[#003d7a] hover:bg-[#002a5a] text-xs font-bold">
             <Plus className="w-3.5 h-3.5 mr-1" /> Add Parameter
@@ -93,9 +92,9 @@ export function WaterTypeManager({ limits, setLimits }: Props) {
         </div>
       </div>
 
-      {waterTypeLimits.length === 0 ? (
+      {filteredLimits.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-          <p className="text-gray-500 text-sm">No parameters configured for {selectedWaterType} Water</p>
+          <p className="text-gray-500 text-sm">No parameters configured for {selectedBody}</p>
           <Button onClick={addNewParam} className="mt-4 bg-[#003d7a] hover:bg-[#002a5a]">
             <Plus className="w-3.5 h-3.5 mr-1" /> Add First Parameter
           </Button>
@@ -113,7 +112,7 @@ export function WaterTypeManager({ limits, setLimits }: Props) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {waterTypeLimits.map(limit => (
+              {filteredLimits.map(limit => (
                 <tr key={limit.id} className="hover:bg-blue-50/50 transition-colors">
                   <td className="p-4">
                     {editingId === limit.id ? (

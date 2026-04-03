@@ -98,30 +98,34 @@ export function generateCertificatePreviewHTML(cert: Certificate): string {
     .join('');
 
   return `
-    <div class="mb-8">
-      <h1 class="text-2xl font-black text-[#003d7a] mb-2">WATER ANALYSIS CERTIFICATE</h1>
-      <p class="text-xs text-gray-500 mb-4">Certificate Number: <strong>${cert.certNumber}</strong></p>
-      
-      <div class="grid grid-cols-2 gap-6 mb-6 text-sm">
-        <div>
-          <p class="text-xs text-gray-500 uppercase font-bold">Client</p>
-          <p class="font-semibold">${cert.client}</p>
-          ${cert.clientPhone ? `<p class="text-xs text-gray-600">📞 ${cert.clientPhone}</p>` : ''}
-          ${cert.clientEmail ? `<p class="text-xs text-gray-600">📧 ${cert.clientEmail}</p>` : ''}
+    <div class="relative mb-8">
+      <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 text-8xl font-black text-[#003d7a] tracking-widest">OFFICIAL</div>
+      <div class="relative">
+        <h1 class="text-2xl font-black text-[#003d7a] mb-2">WATER ANALYSIS CERTIFICATE</h1>
+        <p class="text-xs text-gray-500 mb-4">Certificate Number: <strong>${cert.certNumber}</strong></p>
+        
+        <div class="grid grid-cols-2 gap-6 mb-6 text-sm">
+          <div>
+            <p class="text-xs text-gray-500 uppercase font-bold">Client</p>
+            <p class="font-semibold">${cert.client}</p>
+            ${cert.clientPhone ? `<p class="text-xs text-gray-600">📞 ${cert.clientPhone}</p>` : ''}
+            ${cert.clientEmail ? `<p class="text-xs text-gray-600">📧 ${cert.clientEmail}</p>` : ''}
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 uppercase font-bold">Sample Type</p>
+            <p class="font-semibold">${cert.sampleType}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 uppercase font-bold">Sample Location</p>
+            <p class="font-semibold">${cert.location}</p>
+          </div>
+          <div>
+            <p class="text-xs text-gray-500 uppercase font-bold">Date Sampled</p>
+            <p class="font-semibold">${cert.dateSampled}</p>
+          </div>
         </div>
-        <div>
-          <p class="text-xs text-gray-500 uppercase font-bold">Sample Type</p>
-          <p class="font-semibold">${cert.sampleType}</p>
-        </div>
-        <div>
-          <p class="text-xs text-gray-500 uppercase font-bold">Sample Location</p>
-          <p class="font-semibold">${cert.location}</p>
-        </div>
-        <div>
-          <p class="text-xs text-gray-500 uppercase font-bold">Date Sampled</p>
-          <p class="font-semibold">${cert.dateSampled}</p>
-        </div>
-      </div>
+
+        <div class="mb-3 text-xs text-gray-600"><strong>Samples:</strong> ${cert.samples.length > 0 ? cert.samples.join(', ') : 'None'}</div>
 
       <table class="w-full border-collapse border border-gray-300 mb-6 text-xs">
         <thead class="bg-[#003d7a] text-white">
@@ -141,16 +145,20 @@ export function generateCertificatePreviewHTML(cert: Certificate): string {
         <p class="text-xs text-gray-600 mb-4">Date Reported: <strong>${cert.dateReported}</strong></p>
         <div class="grid grid-cols-2 gap-8 text-sm">
           <div class="text-center">
-            ${cert.sign1SignatureImage ? `<img src="${cert.sign1SignatureImage}" alt="Signature 1" class="mx-auto mb-2 h-10 object-contain" />` : ''}
-            <p class="border-t border-gray-400 pt-2">________________________</p>
-            <p class="font-bold text-[#003d7a]">${cert.sign1Name}</p>
-            <p class="text-xs text-gray-600">${cert.sign1Title}</p>
+            ${(cert.sign1Name || cert.sign1Title || cert.sign1SignatureImage) ? `
+              ${cert.sign1SignatureImage ? `<img src="${cert.sign1SignatureImage}" alt="Signature 1" class="mx-auto mb-2 h-10 object-contain" />` : ''}
+              <p class="border-t border-gray-400 pt-2">________________________</p>
+              <p class="font-bold text-[#003d7a]">${cert.sign1Name || 'No Name Assigned'}</p>
+              <p class="text-xs text-gray-600">${cert.sign1Title || 'No Title Assigned'}</p>
+            ` : '<p class="text-xs text-gray-500 italic">No signatory 1 assigned</p>'}
           </div>
           <div class="text-center">
-            ${cert.sign2SignatureImage ? `<img src="${cert.sign2SignatureImage}" alt="Signature 2" class="mx-auto mb-2 h-10 object-contain" />` : ''}
-            <p class="border-t border-gray-400 pt-2">________________________</p>
-            <p class="font-bold text-[#003d7a]">${cert.sign2Name || '(Authorized Officer)'}</p>
-            <p class="text-xs text-gray-600">${cert.sign2Title}</p>
+            ${(cert.sign2Name || cert.sign2Title || cert.sign2SignatureImage) ? `
+              ${cert.sign2SignatureImage ? `<img src="${cert.sign2SignatureImage}" alt="Signature 2" class="mx-auto mb-2 h-10 object-contain" />` : ''}
+              <p class="border-t border-gray-400 pt-2">________________________</p>
+              <p class="font-bold text-[#003d7a]">${cert.sign2Name || '(Authorized Officer)'}</p>
+              <p class="text-xs text-gray-600">${cert.sign2Title || 'No Title Assigned'}</p>
+            ` : '<p class="text-xs text-gray-500 italic">No signatory 2 assigned</p>'}
           </div>
         </div>
       </div>
@@ -176,16 +184,18 @@ export function generateQuotationPreviewHTML(quote: Quotation): string {
     .join('');
 
   return `
-    <div class="mb-8">
-      <h1 class="text-2xl font-black text-[#003d7a] mb-2">SERVICE QUOTATION</h1>
-      <p class="text-xs text-gray-500 mb-6">Quote Number: <strong>${quote.quoteNumber}</strong></p>
+    <div class="relative mb-8">
+      <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 text-8xl font-black text-[#003d7a] tracking-widest">OFFICIAL</div>
+      <div class="relative">
+        <h1 class="text-2xl font-black text-[#003d7a] mb-2">SERVICE QUOTATION</h1>
+        <p class="text-xs text-gray-500 mb-6">Quote Number: <strong>${quote.quoteNumber}</strong></p>
 
-      <div class="grid grid-cols-2 gap-6 mb-6 text-sm">
-        <div>
-          <p class="text-xs text-gray-500 uppercase font-bold">Client</p>
-          <p class="font-semibold">${quote.client}</p>
-          ${quote.clientPhone ? `<p class="text-xs text-gray-600">📞 ${quote.clientPhone}</p>` : ''}
-          ${quote.clientEmail ? `<p class="text-xs text-gray-600">📧 ${quote.clientEmail}</p>` : ''}
+        <div class="grid grid-cols-2 gap-6 mb-6 text-sm">
+          <div>
+            <p class="text-xs text-gray-500 uppercase font-bold">Client</p>
+            <p class="font-semibold">${quote.client}</p>
+            ${quote.clientPhone ? `<p class="text-xs text-gray-600">📞 ${quote.clientPhone}</p>` : ''}
+            ${quote.clientEmail ? `<p class="text-xs text-gray-600">📧 ${quote.clientEmail}</p>` : ''}
         </div>
         <div>
           <p class="text-xs text-gray-500 uppercase font-bold">Date</p>
@@ -196,6 +206,8 @@ export function generateQuotationPreviewHTML(quote: Quotation): string {
           <p class="text-sm whitespace-pre-wrap">${quote.clientAddress}</p>
         </div>
       </div>
+
+      <div class="mb-4 text-xs text-gray-600"><strong>Samples:</strong> ${quote.samples && quote.samples.length > 0 ? quote.samples.join(', ') : 'None'}</div>
 
       <table class="w-full border-collapse border border-gray-300 mb-6 text-xs">
         <thead class="bg-[#003d7a] text-white">
@@ -233,16 +245,20 @@ export function generateQuotationPreviewHTML(quote: Quotation): string {
       <div class="border-t-2 border-[#003d7a] pt-6 mt-6">
         <div class="grid grid-cols-2 gap-8 text-sm">
           <div class="text-center">
-            ${quote.sign1SignatureImage ? `<img src="${quote.sign1SignatureImage}" alt="Signature 1" class="mx-auto mb-2 h-10 object-contain" />` : ''}
-            <p class="border-t border-gray-400 pt-2">________________________</p>
-            <p class="font-bold text-[#003d7a]">${quote.sign1Name}</p>
-            <p class="text-xs text-gray-600">${quote.sign1Title}</p>
+            ${(quote.sign1Name || quote.sign1Title || quote.sign1SignatureImage) ? `
+              ${quote.sign1SignatureImage ? `<img src="${quote.sign1SignatureImage}" alt="Signature 1" class="mx-auto mb-2 h-10 object-contain" />` : ''}
+              <p class="border-t border-gray-400 pt-2">________________________</p>
+              <p class="font-bold text-[#003d7a]">${quote.sign1Name || 'No Name Assigned'}</p>
+              <p class="text-xs text-gray-600">${quote.sign1Title || 'No Title Assigned'}</p>
+            ` : '<p class="text-xs text-gray-500 italic">No signatory 1 assigned</p>'}
           </div>
           <div class="text-center">
-            ${quote.sign2SignatureImage ? `<img src="${quote.sign2SignatureImage}" alt="Signature 2" class="mx-auto mb-2 h-10 object-contain" />` : ''}
-            <p class="border-t border-gray-400 pt-2">________________________</p>
-            <p class="font-bold text-[#003d7a]">${quote.sign2Name || '(Authorized Officer)'}</p>
-            <p class="text-xs text-gray-600">${quote.sign2Title}</p>
+            ${(quote.sign2Name || quote.sign2Title || quote.sign2SignatureImage) ? `
+              ${quote.sign2SignatureImage ? `<img src="${quote.sign2SignatureImage}" alt="Signature 2" class="mx-auto mb-2 h-10 object-contain" />` : ''}
+              <p class="border-t border-gray-400 pt-2">________________________</p>
+              <p class="font-bold text-[#003d7a]">${quote.sign2Name || '(Authorized Officer)'}</p>
+              <p class="text-xs text-gray-600">${quote.sign2Title || 'No Title Assigned'}</p>
+            ` : '<p class="text-xs text-gray-500 italic">No signatory 2 assigned</p>'}
           </div>
         </div>
       </div>

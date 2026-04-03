@@ -9,7 +9,6 @@ import { QuotationEditor } from './components/QuotationEditor';
 import { SavedQuotations } from './components/SavedQuotations';
 import { PriceListManager } from './components/PriceListManager';
 import { RegulatoryManager } from './components/RegulatoryManager';
-import { WaterTypeManager } from './components/WaterTypeManager';
 import { SignatureManager } from './components/SignatureManager';
 import { loadSignatures, saveSignatures } from './utils/signatures';
 import { Signature } from './types';
@@ -73,6 +72,7 @@ function generateNewQuotation(count: number): Quotation {
     validUntil: expiryDate.toISOString().slice(0, 10),
     expiryDate: expiryDate.toISOString(),
     items: items,
+    samples: [],
     subtotal: subtotal,
     totalTax: totalTax,
     totalAmount: subtotal + totalTax,
@@ -267,9 +267,9 @@ export default function App() {
             <TabsTrigger value="saved" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]"><FolderOpen className="w-4 h-4 mr-2" /> Saved Items</TabsTrigger>
             {activeModule === 'certificates' && (
               <>
-                <TabsTrigger value="watertype" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]"><Droplets className="w-4 h-4 mr-2" /> Water Types</TabsTrigger>
+                <TabsTrigger value="samples" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]"><Plus className="w-4 h-4 mr-2" /> Samples</TabsTrigger>
                 <TabsTrigger value="regulatory" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]"><ShieldCheck className="w-4 h-4 mr-2" /> Standards DB</TabsTrigger>
-            <TabsTrigger value="signatures" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]"><ShieldCheck className="w-4 h-4 mr-2" /> Digital Signatures</TabsTrigger>
+                <TabsTrigger value="signatures" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]"><ShieldCheck className="w-4 h-4 mr-2" /> Digital Signatures</TabsTrigger>
               </>
             )}
             {activeModule === 'quotations' && (
@@ -293,16 +293,38 @@ export default function App() {
             )}
           </TabsContent>
 
-          <TabsContent value="watertype" className="mt-0 print:hidden">
-            <WaterTypeManager limits={regLimits} setLimits={setRegLimits} />
+          <TabsContent value="samples" className="mt-0 print:hidden">
+            {activeModule === 'certificates' ? (
+              <div className="p-4 bg-white border rounded-xl shadow-sm">
+                <h3 className="text-sm font-bold text-[#003d7a] mb-2">Sample Manager - Certificate</h3>
+                <p className="text-xs text-gray-500 mb-3">Add or remove sample aliases for this certificate record.</p>
+                <div className="p-3 bg-gray-50 rounded border border-gray-200 text-sm text-gray-700">
+                  {currentCert.samples.length > 0 ? currentCert.samples.join(', ') : 'No samples set yet.'}
+                </div>
+                <p className="text-xs text-gray-500">Please edit samples through the main Certificate form and save.</p>
+              </div>
+            ) : (
+              <div className="p-4 bg-white border rounded-xl shadow-sm">
+                <h3 className="text-sm font-bold text-[#003d7a] mb-2">Sample Manager - Quotation</h3>
+                <p className="text-xs text-gray-500 mb-3">Add related sample descriptions for this quotation record.</p>
+                <div className="flex flex-wrap gap-2">
+                  {currentQuotation.samples && currentQuotation.samples.length > 0 ? currentQuotation.samples.map((sample, idx) => (
+                    <span key={idx} className="px-2 py-1 rounded bg-[#e8f1ff] text-sm">
+                      {sample}
+                    </span>
+                  )) : <span className="text-xs text-gray-400">No samples defined</span>}
+                </div>
+                <p className="text-xs text-gray-500 mt-3">Please edit samples via the Quotation editor currently.</p>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="regulatory" className="mt-0 print:hidden">
             <RegulatoryManager limits={regLimits} setLimits={setRegLimits} onReset={() => { if (confirm("Reset?")) setRegLimits(INITIAL_REGULATORY_LIMITS); }} />
+          </TabsContent>
 
           <TabsContent value="signatures" className="mt-0 print:hidden">
             <SignatureManager signatures={signatures} setSignatures={setSignatures} />
-          </TabsContent>
           </TabsContent>
 
           <TabsContent value="database" className="mt-0 print:hidden">

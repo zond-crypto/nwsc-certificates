@@ -152,7 +152,6 @@ function parseZABSResponse(data: any): RegulatoryLimit[] {
     if (Array.isArray(data)) {
       return data.map((item, idx) => ({
         id: `zabs-${idx}`,
-        waterType: item.waterType || 'Drinking',
         regulatoryBody: 'ZABS',
         parameterName: item.parameter || item.parameterName || '',
         limitValue: item.limit || item.limitValue || '',
@@ -174,7 +173,6 @@ function parseZEMAResponse(data: any): RegulatoryLimit[] {
     if (Array.isArray(data)) {
       return data.map((item, idx) => ({
         id: `zema-${idx}`,
-        waterType: item.waterType || 'Treated Effluent',
         regulatoryBody: 'ZEMA',
         parameterName: item.parameter || item.parameterName || '',
         limitValue: item.limit || item.limitValue || '',
@@ -204,7 +202,7 @@ export function importStandardsFromJSON(jsonString: string): RegulatoryLimit[] {
     if (Array.isArray(data)) {
       // Validate structure
       const standards = data.filter(item =>
-        item.id && item.waterType && item.regulatoryBody && item.parameterName && item.limitValue
+        item.id && item.regulatoryBody && item.parameterName && item.limitValue
       );
       cacheStandards(standards, 'imported');
       return standards;

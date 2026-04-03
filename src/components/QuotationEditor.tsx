@@ -23,6 +23,7 @@ interface Props {
 export function QuotationEditor({ quotation, setQuotation, onSave, priceList, signatures }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
   const [showPreview, setShowPreview] = useState(false);
+  const [newSampleName, setNewSampleName] = useState('');
   const [selectedSign1Id, setSelectedSign1Id] = useState(quotation.sign1SignatureId || '');
   const [selectedSign2Id, setSelectedSign2Id] = useState(quotation.sign2SignatureId || '');
 
@@ -120,25 +121,79 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
     updateTotals(newItems);
   };
 
+  const addSample = () => {
+    const sampleLabel = newSampleName.trim();
+    if (!sampleLabel) return;
+    setQuotation(prev => ({
+      ...prev,
+      samples: [...(prev.samples || []), sampleLabel]
+    }));
+    setNewSampleName('');
+  };
+
+  const removeSample = (index: number) => {
+    setQuotation(prev => ({
+      ...prev,
+      samples: (prev.samples || []).filter((_, idx) => idx !== index)
+    }));
+  };
+
   const formatCurrency = (val: number) => `K ${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const exportPDF = () => {
+  const exportPDF = async () => {
     const doc = new jsPDF({ orientation: 'portrait', format: 'a4' });
-    
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    // Watermark
+    doc.saveGraphicsState();
+    (doc as any).setGState(new (doc as any).GState({ opacity: 0.08 }));
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(60);
+    doc.setTextColor(200, 200, 200);
+    doc.text('OFFICIAL', pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
+    doc.restoreGraphicsState();
+
+    // Optional logo injection
+    const loadImage = (src: string): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = src;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return reject('No canvas context');
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        };
+        img.onerror = () => reject('Logo load failed');
+      });
+    };
+
+    try {
+      const logoDataUrl = await loadImage('/logo.png');
+      doc.addImage(logoDataUrl, 'PNG', 15, 12, 22, 22);
+    } catch {
+      // fallback skip
+    }
+
     // Header
     doc.setFillColor(0, 61, 122);
     doc.rect(0, 0, 210, 40, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("NKANA WATER SUPPLY AND SANITATION COMPANY", 105, 12, { align: "center" });
+    doc.setFont('helvetica', 'bold');
+    doc.text('NKANA WATER SUPPLY AND SANITATION COMPANY', 105, 12, { align: 'center' });
     doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    doc.text("Mutondo Crescent, Riverside, Box 20982 Kitwe, Zambia", 105, 18, { align: "center" });
-    doc.text("Tel: +260 212 222488 | Email: headoffice@nwsc.com.zm", 105, 22, { align: "center" });
+    doc.setFont('helvetica', 'normal');
+    doc.text('Mutondo Crescent, Riverside, Box 20982 Kitwe, Zambia', 105, 18, { align: 'center' });
+    doc.text('Tel: +260 212 222488 | Email: headoffice@nwsc.com.zm', 105, 22, { align: 'center' });
     doc.setTextColor(232, 180, 0);
     doc.setFontSize(14);
-    doc.text("SERVICE QUOTATION", 105, 30, { align: "center" });
+    doc.text('SERVICE QUOTATION', 105, 30, { align: 'center' });
 
     // Meta
     doc.setTextColor(0, 0, 0);
@@ -152,6 +207,8 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
     doc.text(`Client: ${quotation.client}`, 15, 65);
     doc.text(`Address: ${quotation.clientAddress}`, 15, 70);
 
+    doc.text(`Samples: ${(quotation.samples || []).join(', ')}`, 15, 77);
+
     // Table
     const body = quotation.items.map((item, idx) => [
       idx + 1,
@@ -163,17 +220,17 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
     ]);
 
     autoTable(doc, {
-      startY: 75,
+      startY: 85,
       head: [['#', 'Description', 'Qty', 'Unit Price', 'Tax (16%)', 'Subtotal']],
       body: body,
       theme: 'grid',
       headStyles: { fillColor: [0, 61, 122] },
-      styles: { fontSize: 9 }
+      styles: { fontSize: 9, overflow: 'linebreak', cellWidth: 'wrap' }
     });
 
     // Totals
     const finalY = (doc as any).lastAutoTable.finalY + 10;
-    doc.setFont("helvetica", "bold");
+    doc.setFont('helvetica', 'bold');
     doc.text(`Subtotal:`, 140, finalY);
     doc.text(formatCurrency(quotation.subtotal), 180, finalY, { align: 'right' });
     doc.text(`Total VAT (16%):`, 140, finalY + 7);
@@ -184,32 +241,30 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
     doc.text(`GRAND TOTAL:`, 140, finalY + 16);
     doc.text(formatCurrency(quotation.totalAmount), 180, finalY + 16, { align: 'right' });
 
-    // Add watermark
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    doc.saveGraphicsState();
-    doc.setGState(new (doc as any).GState({ opacity: 0.1 }));
-    doc.setFontSize(48);
-    doc.setTextColor(200, 200, 200);
-    doc.text("NKANA WATER", pageWidth / 2, pageHeight / 2, { align: "center", angle: 45 });
-    doc.restoreGraphicsState();
+    // Signatories
+    if (quotation.sign1Name || quotation.sign1Title || quotation.sign1SignatureImage || quotation.sign2Name || quotation.sign2Title || quotation.sign2SignatureImage) {
+      const signY = finalY + 35;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Signatories', 20, signY);
 
-    // Signatures
-    const signY = finalY + 35;
-    doc.setFont('helvetica', 'bold');
-    doc.text(quotation.sign1Name || 'Name', 40, signY + 22, { align: 'center' });
-    doc.setFont('helvetica', 'normal');
-    doc.text(quotation.sign1Title || 'Title', 40, signY + 26, { align: 'center' });
+      if (quotation.sign1Name || quotation.sign1Title || quotation.sign1SignatureImage) {
+        if (quotation.sign1SignatureImage) {
+          try { doc.addImage(quotation.sign1SignatureImage, 'PNG', 20, signY + 5, 40, 15); } catch {}
+        }
+        doc.setFont('helvetica', 'normal');
+        doc.text(`${quotation.sign1Name || 'Name not provided'}`, 40, signY + 30, { align: 'center' });
+        doc.text(`${quotation.sign1Title || 'Title not provided'}`, 40, signY + 35, { align: 'center' });
+      }
 
-    if (quotation.sign2SignatureImage) {
-      try {
-        doc.addImage(quotation.sign2SignatureImage, 'PNG', 130, signY, 40, 15);
-      } catch {}
+      if (quotation.sign2Name || quotation.sign2Title || quotation.sign2SignatureImage) {
+        if (quotation.sign2SignatureImage) {
+          try { doc.addImage(quotation.sign2SignatureImage, 'PNG', 130, signY + 5, 40, 15); } catch {}
+        }
+        doc.setFont('helvetica', 'normal');
+        doc.text(`${quotation.sign2Name || '(Authorized Officer)'}`, 170, signY + 30, { align: 'center' });
+        doc.text(`${quotation.sign2Title || 'Title not provided'}`, 170, signY + 35, { align: 'center' });
+      }
     }
-    doc.setFont('helvetica', 'bold');
-    doc.text(quotation.sign2Name || '(Authorized Officer)', 150, signY + 22, { align: 'center' });
-    doc.setFont('helvetica', 'normal');
-    doc.text(quotation.sign2Title || 'Title', 150, signY + 26, { align: 'center' });
 
     doc.save(buildDocumentFilename('Quotation', quotation.client, 'pdf'));
   };
@@ -345,10 +400,36 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
          </div>
       </div>
 
+      {/* Samples Section */}
+      <div className="p-6 border-b border-gray-200 bg-white">
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <h3 className="text-sm font-black text-[#003d7a]">Sample Entries</h3>
+          <span className="text-xs text-gray-500">Manage multiple samples for this quotation</span>
+        </div>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {(quotation.samples || []).map((sample, idx) => (
+            <span key={idx} className="inline-flex items-center gap-1 rounded bg-[#e8f1ff] px-2 py-1 text-xs text-[#003d7a]">
+              {sample}
+              <button type="button" onClick={() => removeSample(idx)} className="text-red-500">×</button>
+            </span>
+          ))}
+          {(quotation.samples || []).length === 0 && <span className="text-xs text-gray-400">No samples defined yet.</span>}
+        </div>
+        <div className="flex gap-2">
+          <Input
+            value={newSampleName}
+            onChange={e => setNewSampleName(e.target.value)}
+            placeholder="Add sample description"
+            className="flex-1"
+          />
+          <Button size="sm" onClick={addSample} className="bg-[#003d7a] hover:bg-[#002a5a] text-xs">Add Sample</Button>
+        </div>
+      </div>
+
       {/* Items Table */}
       <div className="p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-black text-[#003d7a]">QUOTATION ITEMS</h3>
+          <h3 className="text-lg font-black text-[#003d7a]">QUOTATION ITEMS</h3>}
           <Button onClick={addItem} size="sm" className="bg-[#003d7a] hover:bg-[#002a5a] text-xs"><Plus className="w-3 h-3 mr-1"/> Add Item</Button>
         </div>
 

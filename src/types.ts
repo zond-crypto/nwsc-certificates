@@ -55,6 +55,7 @@ export type Quotation = {
   validUntil: string;
   expiryDate?: string; // Auto-calculated expiry date
   items: QuotationItem[];
+  samples: string[];
   subtotal: number;
   totalTax: number;
   totalAmount: number;
@@ -86,13 +87,12 @@ export type ServicePrice = {
   unitPrice: number;
 };
 
-export type WaterType = 'Drinking' | 'Borehole' | 'Surface' | 'Treated Effluent' | 'Waste Water';
-
 export type RegulatoryLimit = {
   id: string;
-  waterType: WaterType;
   regulatoryBody: 'ZABS' | 'ZEMA';
   parameterName: string;
   limitValue: string;
   unit: string;
+  // Deprecated: support old data on load but do not use in new forms
+  waterType?: string;
 };

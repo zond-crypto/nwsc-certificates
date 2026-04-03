@@ -133,6 +133,13 @@ export function validateQuotation(quote: Quotation): ValidationError[] {
     });
   }
 
+  if (!quote.samples || quote.samples.length === 0) {
+    errors.push({
+      field: 'samples',
+      message: 'At least one sample entry is required'
+    });
+  }
+
   // Validate each item
   quote.items.forEach((item, idx) => {
     if (!item.parameterName || !item.parameterName.trim()) {

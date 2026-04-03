@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RegulatoryLimit, WaterType } from '../types';
+import { RegulatoryLimit } from '../types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,10 +21,8 @@ interface Props {
   onReset: () => void;
 }
 
-const WATER_TYPES: WaterType[] = ['Drinking', 'Borehole', 'Surface', 'Treated Effluent', 'Waste Water'];
-
 export function RegulatoryManager({ limits, setLimits, onReset }: Props) {
-  const [newType, setNewType] = useState<WaterType>('Drinking');
+  const [newBody, setNewBody] = useState<'ZABS' | 'ZEMA'>('ZABS');
   const [newParam, setNewParam] = useState("");
   const [newValue, setNewValue] = useState("");
   const [newUnit, setNewUnit] = useState("mg/L");
@@ -94,8 +92,7 @@ export function RegulatoryManager({ limits, setLimits, onReset }: Props) {
     }
     const newLimit: RegulatoryLimit = {
       id: `rl${Date.now()}`,
-      waterType: newType,
-      regulatoryBody: (newType.includes('Effluent') || newType.includes('Waste')) ? 'ZEMA' : 'ZABS',
+      regulatoryBody: newBody,
       parameterName: newParam,
       limitValue: newValue,
       unit: newUnit
@@ -133,13 +130,14 @@ export function RegulatoryManager({ limits, setLimits, onReset }: Props) {
 
       <div className="bg-[#f0f9ff] p-5 rounded-2xl border border-blue-100 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
          <div className="space-y-2">
-            <label className="text-[10px] font-black text-[#003d7a] uppercase ml-1">Water Category</label>
-            <Select value={newType} onValueChange={v => setNewType(v as WaterType)}>
+            <label className="text-[10px] font-black text-[#003d7a] uppercase ml-1">Regulatory Body</label>
+            <Select value={newBody} onValueChange={v => setNewBody(v as 'ZABS' | 'ZEMA')}>
                <SelectTrigger className="h-11 bg-white border-blue-200 shadow-none rounded-xl">
                   <SelectValue />
                </SelectTrigger>
                <SelectContent>
-                  {WATER_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  <SelectItem value="ZABS">ZABS</SelectItem>
+                  <SelectItem value="ZEMA">ZEMA</SelectItem>
                </SelectContent>
             </Select>
          </div>
@@ -164,7 +162,6 @@ export function RegulatoryManager({ limits, setLimits, onReset }: Props) {
          <table className="w-full text-sm">
             <thead className="bg-gray-100 text-gray-500 font-black text-[10px] uppercase">
                <tr>
-                  <th className="p-4 text-left">Water Category</th>
                   <th className="p-4 text-left">Regulatory Body</th>
                   <th className="p-4 text-left">Parameter Name</th>
                   <th className="p-4 text-center">Unit</th>
@@ -175,7 +172,6 @@ export function RegulatoryManager({ limits, setLimits, onReset }: Props) {
             <tbody className="divide-y divide-gray-100">
                {limits.map(l => (
                   <tr key={l.id} className="hover:bg-gray-50 transition-colors">
-                     <td className="p-4 font-bold text-[#003d7a]">{l.waterType}</td>
                      <td className="p-4">
                         <span className={`px-2 py-1 rounded text-[10px] font-black tracking-widest ${l.regulatoryBody === 'ZABS' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
                            {l.regulatoryBody}
