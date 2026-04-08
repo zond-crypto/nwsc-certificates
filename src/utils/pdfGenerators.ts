@@ -9,137 +9,561 @@
  *   3) COA CSV export                      – exportCOACSV()
  *   4) Quotation CSV export                – exportQuotationCSV()
  *
- * Key features:
- *   • Full NWSC brand identity on every page (Ocean Blue #0077B6 palette)
- *   • Semi-transparent NWSC watermark on every page body (~8% opacity)
- *   • Multi-sample COA pagination: max 6 sample columns per A4 page; the
- *     Parameter / Unit / Limit columns repeat on every continuation page
- *   • Proper Unicode rendering for ≤, –, <, °, µ, ² ³ subscripts via UTF-8
- *   • Alternating white / #ADE8F4 row fill
- *   • Signatories section (last page only) with signature images
- *   • Footer: NWSC — Certified | Bigger, Better, Smarter | Page X of Y
- *   • UTF-8 BOM on all CSV exports so Excel decodes special characters
+ * COA layout matches the NWSC reference design EXACTLY:
+ *   • Full-width deep-blue header (logo left, company/dept/title centred)
+ *   • 2-row light-grey metadata: Cert No | Client | Date Sampled | Location
+ *     then Sample Type | Date Reported
+ *   • Table: # | Parameter | Unit | Limit | Sample 1 … Sample N
+ *   • MAX 8 sample columns per page — overflow → new page with FULL header repeat
+ *   • Watermark: NWSC logo centred, ~7% opacity
+ *   • Footer: dark-blue band — "Bigger, Better, Smarter" left | Page X of Y right
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Certificate, Quotation } from '../types';
-import { buildDocumentFilename } from './fileNaming';
 
 // ─── Brand constants ──────────────────────────────────────────────────────────
-const OCEAN_BLUE_R = 0;
-const OCEAN_BLUE_G = 119;
-const OCEAN_BLUE_B = 182;       // #0077B6
+const DB = [0,   61,  122] as [number,number,number];  // #003D7A  deep blue
+const OB = [0,  119,  182] as [number,number,number];  // #0077B6  ocean blue
+const GD = [232,180,   0 ] as [number,number,number];  // #E8B400  gold
 
-const DARK_BLUE_R  = 0;
-const DARK_BLUE_G  = 61;
-const DARK_BLUE_B  = 122;       // #003D7A
+const A4_W  = 210;   // mm
+const A4_H  = 297;   // mm
+const MARGIN = 12;   // mm side margin (left/right)
 
-const GOLD_R = 232;
-const GOLD_G = 180;
-const GOLD_B = 0;               // #E8B400
+const MAX_SAMPLE_COLS = 8; // max sample columns per page
 
-const LIGHT_BLUE_R = 173;
-const LIGHT_BLUE_G = 232;
-const LIGHT_BLUE_B = 244;       // #ADE8F4  – alternating row tint
-
-const A4_W = 210;   // mm
-const A4_H = 297;   // mm
-const MARGIN = 14;  // mm side margin
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Load an image URL into a base64 data-URI for jsPDF.addImage() */
-function loadImageAsDataUrl(src: string): Promise<string> {
+// ─── Image loader ─────────────────────────────────────────────────────────────
+function loadImg(src: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.src = src;
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width  = img.naturalWidth  || img.width;
-      canvas.height = img.naturalHeight || img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) { reject('No canvas context'); return; }
+      const c = document.createElement('canvas');
+      c.width  = img.naturalWidth  || img.width;
+      c.height = img.naturalHeight || img.height;
+      const ctx = c.getContext('2d');
+      if (!ctx) { reject('No ctx'); return; }
       ctx.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL('image/png'));
+      resolve(c.toDataURL('image/png'));
     };
-    img.onerror = () => reject('Image load failed: ' + src);
+    img.onerror = () => reject('load error: ' + src);
   });
 }
 
-/** Format Zambian Kwacha */
-function kwacha(val: number): string {
-  return `K ${val.toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-/** Sanitise client name for filenames */
-function sanitiseFilename(s: string): string {
+function sanitise(s: string): string {
   return (s || 'Unknown').trim().replace(/\s+/g, '_').replace(/[^A-Za-z0-9_-]/g, '');
+}
+function kwacha(v: number): string {
+  return `K ${v.toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  SHARED: draw the NWSC watermark on the current page
+//  COA: draw full header block on current page
+//  Returns Y position immediately BELOW the header block
+// ─────────────────────────────────────────────────────────────────────────────
+function drawCOAHeader(doc: jsPDF, logoDataUrl: string | null): number {
+  const HDR_H = 50; // total header height (mm)
+  const LOGO_SIZE = 20;
+  const LOGO_X    = MARGIN;
+  const LOGO_Y    = 5;
+
+  // ── Blue background fill ──
+  doc.setFillColor(...DB);
+  doc.rect(0, 0, A4_W, HDR_H, 'F');
+
+  // ── Logo in white circle ──
+  if (logoDataUrl) {
+    // white circle
+    doc.setFillColor(255, 255, 255);
+    doc.circle(LOGO_X + LOGO_SIZE / 2, LOGO_Y + LOGO_SIZE / 2, LOGO_SIZE / 2 + 1, 'F');
+    doc.addImage(logoDataUrl, 'PNG', LOGO_X, LOGO_Y + 1, LOGO_SIZE, LOGO_SIZE - 2);
+  }
+
+  // ── Centred stacked text ──
+  const cx = A4_W / 2;
+
+  doc.setTextColor(255, 255, 255);
+
+  // Company name – large
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('NKANA WATER SUPPLY AND SANITATION COMPANY', cx, 12, { align: 'center' });
+
+  // Address lines – small
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6.5);
+  doc.text('Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia', cx, 18, { align: 'center' });
+  doc.text('Tel: +260 212 222488 / 221099 / 0971 223 458   |   Fax: +260 212 222490', cx, 22.5, { align: 'center' });
+  doc.text('headoffice@nwsc.com.zm   |   www.nwsc.zm', cx, 27, { align: 'center' });
+
+  // Thin gold divider
+  doc.setDrawColor(...GD);
+  doc.setLineWidth(0.6);
+  doc.line(MARGIN, 30.5, A4_W - MARGIN, 30.5);
+
+  // Department label
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(255, 215, 60); // warm gold tint
+  doc.text('SAFETY HEALTH ENVIRONMENT AND QUALITY DEPARTMENT', cx, 36, { align: 'center' });
+
+  // Document title – largest, white
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(255, 255, 255);
+  doc.text('WATER ANALYSIS CERTIFICATE', cx, 43, { align: 'center' });
+
+  // Bottom gold underline of header
+  doc.setFillColor(...GD);
+  doc.rect(0, HDR_H - 2, A4_W, 2, 'F');
+
+  return HDR_H + 1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  COA: draw metadata rows (light grey band)
+//  Returns Y position immediately BELOW the metadata block
+// ─────────────────────────────────────────────────────────────────────────────
+function drawCOAMetadata(doc: jsPDF, cert: Certificate, startY: number): number {
+  const ROW_H = 7.5;
+  const bandH = ROW_H * 2 + 2;
+  const availW = A4_W - 2 * MARGIN;
+
+  // Background
+  doc.setFillColor(240, 242, 245);
+  doc.rect(MARGIN, startY, availW, bandH, 'F');
+
+  // Border
+  doc.setDrawColor(200, 205, 215);
+  doc.setLineWidth(0.3);
+  doc.rect(MARGIN, startY, availW, bandH, 'S');
+
+  // ── Row 1: Cert No | Client | Date Sampled | Location ──
+  const row1: [string, string][] = [
+    ['Cert No:',       cert.certNumber    || '—'],
+    ['Client:',        cert.client        || '—'],
+    ['Date Sampled:',  cert.dateSampled   || '—'],
+    ['Location:',      cert.location      || '—'],
+  ];
+  const colW1 = availW / row1.length;
+
+  row1.forEach(([label, val], ci) => {
+    const x = MARGIN + ci * colW1 + 2;
+    const y1 = startY + 4.5;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...DB);
+    doc.text(label, x, y1);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(30, 30, 30);
+    const maxW = colW1 - 4;
+    const parts = doc.splitTextToSize(val, maxW);
+    doc.text(parts[0] || '', x, y1 + 3);
+
+    // Vertical divider (not after last)
+    if (ci < row1.length - 1) {
+      doc.setDrawColor(200, 205, 215);
+      doc.setLineWidth(0.25);
+      doc.line(MARGIN + (ci + 1) * colW1, startY + 1, MARGIN + (ci + 1) * colW1, startY + ROW_H);
+    }
+  });
+
+  // Horizontal divider between rows
+  doc.setDrawColor(200, 205, 215);
+  doc.setLineWidth(0.25);
+  doc.line(MARGIN, startY + ROW_H, MARGIN + availW, startY + ROW_H);
+
+  // ── Row 2: Sample Type | Date Reported ──
+  const row2: [string, string][] = [
+    ['Sample Type:',    cert.sampleType    || '—'],
+    ['Date Reported:',  cert.dateReported  || '—'],
+  ];
+  const colW2 = availW / row2.length;
+
+  row2.forEach(([label, val], ci) => {
+    const x = MARGIN + ci * colW2 + 2;
+    const y1 = startY + ROW_H + 4.5;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...DB);
+    doc.text(label, x, y1);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(30, 30, 30);
+    const maxW = colW2 - 4;
+    const parts = doc.splitTextToSize(val, maxW);
+    doc.text(parts[0] || '', x, y1 + 3);
+
+    if (ci < row2.length - 1) {
+      doc.setDrawColor(200, 205, 215);
+      doc.setLineWidth(0.25);
+      doc.line(MARGIN + (ci + 1) * colW2, startY + ROW_H + 1, MARGIN + (ci + 1) * colW2, startY + bandH - 1);
+    }
+  });
+
+  return startY + bandH + 2;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  COA: draw watermark on current page (must be called BEFORE other content)
+// ─────────────────────────────────────────────────────────────────────────────
+async function drawCOAWatermark(doc: jsPDF, logoDataUrl: string | null): Promise<void> {
+  doc.saveGraphicsState();
+  // @ts-ignore
+  (doc as any).setGState(new (doc as any).GState({ opacity: 0.07 }));
+  if (logoDataUrl) {
+    const sz = 110;
+    doc.addImage(logoDataUrl, 'PNG', (A4_W - sz) / 2, (A4_H - sz) / 2, sz, sz);
+  } else {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(80);
+    doc.setTextColor(180, 180, 180);
+    doc.text('NWSC', A4_W / 2, A4_H / 2, { align: 'center', angle: 45 });
+  }
+  doc.restoreGraphicsState();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  COA: draw the footer band on EVERY page
+// ─────────────────────────────────────────────────────────────────────────────
+function drawCOAFooters(doc: jsPDF, totalPages: number): void {
+  const FOO_H  = 8;
+  const FOO_Y  = A4_H - FOO_H;
+
+  for (let pg = 1; pg <= totalPages; pg++) {
+    doc.setPage(pg);
+
+    // Blue band
+    doc.setFillColor(...DB);
+    doc.rect(0, FOO_Y, A4_W, FOO_H, 'F');
+
+    // Left: slogan
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7);
+    doc.setTextColor(255, 255, 255);
+    doc.text('Bigger, Better, Smarter', MARGIN, FOO_Y + 5);
+
+    // Right: page number
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(`Page ${pg} of ${totalPages}`, A4_W - MARGIN, FOO_Y + 5, { align: 'right' });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  COA: draw signatories block
+// ─────────────────────────────────────────────────────────────────────────────
+function drawCOASignatories(
+  doc: jsPDF,
+  s1Name: string, s1Title: string, s1Img?: string,
+  s2Name: string, s2Title: string, s2Img?: string,
+  startY: number = 220
+): void {
+  // Section label
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...DB);
+  doc.text('AUTHORISED SIGNATORIES', MARGIN, startY);
+
+  doc.setDrawColor(...OB);
+  doc.setLineWidth(0.4);
+  doc.line(MARGIN, startY + 1.5, A4_W - MARGIN, startY + 1.5);
+
+  const cols = [MARGIN, A4_W / 2 + 5];
+  const entries = [
+    { name: s1Name, title: s1Title, img: s1Img },
+    { name: s2Name, title: s2Title, img: s2Img },
+  ];
+
+  entries.forEach((e, ci) => {
+    if (!e.name && !e.title && !e.img) return;
+    const x = cols[ci];
+    let sy = startY + 5;
+
+    if (e.img) {
+      try { doc.addImage(e.img, 'PNG', x, sy, 42, 16); } catch {}
+      sy += 18;
+    } else {
+      sy += 16;
+    }
+
+    doc.setDrawColor(...DB);
+    doc.setLineWidth(0.5);
+    doc.line(x, sy, x + 70, sy);
+    sy += 4;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(20, 20, 20);
+    doc.text(e.name || '________________________', x, sy);
+    sy += 4;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(80, 80, 80);
+    doc.text(e.title || '', x, sy);
+    sy += 4;
+
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 120);
+    doc.text('Date: ___________________________', x, sy);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  DOCUMENT 1: Certificate of Analysis (COA)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function generateCOAPdf(certificate: Certificate): Promise<void> {
+  const doc = new jsPDF({ orientation: 'portrait', format: 'a4', unit: 'mm' });
+
+  // Load logo
+  let logo: string | null = null;
+  try { logo = await loadImg('/logo.png'); } catch { /* skip */ }
+
+  const samples   = certificate.samples  || [];
+  const tableData = certificate.tableData || [];
+
+  // Split samples into pages of MAX_SAMPLE_COLS
+  const groups: string[][] = [];
+  if (samples.length === 0) {
+    groups.push([]); // one page, no sample columns
+  } else {
+    for (let i = 0; i < samples.length; i += MAX_SAMPLE_COLS) {
+      groups.push(samples.slice(i, i + MAX_SAMPLE_COLS));
+    }
+  }
+
+  const limitHeader =
+    certificate.sampleType === 'Drinking Water' ? 'WHO/ZABS Limit' :
+    certificate.sampleType === 'Wastewater'     ? 'ZEMA Limit'     : 'Limit';
+
+  // Pre-compute section row indices for styling
+  const sectionRowIdxs: number[] = [];
+  tableData.forEach((row, i) => { if (row.section) sectionRowIdxs.push(i); });
+
+  // ── Iterate sample page groups ─────────────────────────────────────────────
+  for (let gi = 0; gi < groups.length; gi++) {
+    const sampleGroup = groups[gi];
+    const globalStart = gi * MAX_SAMPLE_COLS;
+
+    if (gi > 0) doc.addPage();
+
+    // 1. Watermark (draw first so content appears over it)
+    await drawCOAWatermark(doc, logo);
+
+    // 2. Header
+    const afterHdr = drawCOAHeader(doc, logo);
+
+    // 3. Metadata
+    const afterMeta = drawCOAMetadata(doc, certificate, afterHdr);
+
+    // 4. (Optional) continuation banner
+    if (gi > 0) {
+      doc.setFillColor(...OB);
+      doc.rect(MARGIN, afterMeta - 1, A4_W - 2 * MARGIN, 5.5, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(255, 255, 255);
+      doc.text(
+        `Samples ${globalStart + 1}–${globalStart + sampleGroup.length} of ${samples.length}  (continued from previous page)`,
+        MARGIN + 2, afterMeta + 3.5
+      );
+    }
+
+    const tableStartY = gi > 0 ? afterMeta + 7 : afterMeta;
+
+    // 5. Column widths
+    //    Fixed: # | Parameter | Unit | Limit
+    //    Remaining width split across sample columns
+    const FIXED_WIDTHS = { 0: 7, 1: 48, 2: 17, 3: 26 };
+    const usedFixed = FIXED_WIDTHS[0] + FIXED_WIDTHS[1] + FIXED_WIDTHS[2] + FIXED_WIDTHS[3];
+    const availForSamples = A4_W - 2 * MARGIN - usedFixed;
+    const sampleColW = sampleGroup.length > 0
+      ? Math.min(availForSamples / sampleGroup.length, 25)
+      : 20;
+
+    const colStyles: Record<number, object> = {
+      0: { cellWidth: FIXED_WIDTHS[0], halign: 'center' },
+      1: { cellWidth: FIXED_WIDTHS[1], halign: 'left' },
+      2: { cellWidth: FIXED_WIDTHS[2], halign: 'center' },
+      3: { cellWidth: FIXED_WIDTHS[3], halign: 'center' },
+    };
+    sampleGroup.forEach((_, si) => {
+      colStyles[4 + si] = { cellWidth: sampleColW, halign: 'center' };
+    });
+
+    // 6. Build table head
+    const tableHead = [['#', 'Parameter', 'Unit', limitHeader, ...sampleGroup]];
+
+    // 7. Build table body
+    let paramCount = 0;
+    const tableBody: (string | object)[][] = [];
+
+    tableData.forEach(row => {
+      if (row.section) {
+        tableBody.push([{
+          content: row.section || '',
+          colSpan: 4 + sampleGroup.length,
+          styles: {
+            fillColor: OB as [number,number,number],
+            textColor: [255, 255, 255] as [number,number,number],
+            fontStyle: 'bold',
+            fontSize: 7,
+            halign: 'left',
+          }
+        }]);
+      } else {
+        paramCount++;
+        const resultCols = sampleGroup.map((_, si) => {
+          const absIdx = globalStart + si;
+          const v = row.results?.[absIdx];
+          return v !== undefined && v !== null && v !== '' ? v : '—';
+        });
+        tableBody.push([String(paramCount), row.name || '', row.unit || '', row.limit || '', ...resultCols]);
+      }
+    });
+
+    // 8. Render table — autoTable handles its own page-breaks.
+    //    Each time it adds a page WE will redraw the header+meta ourselves via didAddPage.
+    autoTable(doc, {
+      head: tableHead,
+      body: tableBody,
+      startY: tableStartY,
+      margin: { left: MARGIN, right: MARGIN, bottom: 15 }, // 15 mm bottom for footer
+      theme: 'grid',
+      styles: {
+        fontSize: 7.5,
+        cellPadding: { top: 1.8, bottom: 1.8, left: 2, right: 2 },
+        overflow: 'linebreak',
+        valign: 'middle',
+        textColor: [20, 20, 20] as [number,number,number],
+        lineColor: [180, 185, 195] as [number,number,number],
+        lineWidth: 0.2,
+      },
+      headStyles: {
+        fillColor: DB,
+        textColor: [255, 255, 255] as [number,number,number],
+        fontStyle: 'bold',
+        fontSize: 7.5,
+        halign: 'center',
+      },
+      columnStyles: colStyles,
+      alternateRowStyles: {
+        fillColor: [235, 240, 248] as [number,number,number],
+      },
+      rowPageBreak: 'avoid',
+      didAddPage: (data) => {
+        // Redraw watermark + full header + metadata on each new page autoTable creates
+        void (async () => { await drawCOAWatermark(doc, logo); })();
+
+        const afterH = drawCOAHeader(doc, logo);
+        const afterM = drawCOAMetadata(doc, certificate, afterH);
+
+        // Continuation banner
+        doc.setFillColor(...OB);
+        doc.rect(MARGIN, afterM - 1, A4_W - 2 * MARGIN, 5.5, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
+        doc.setTextColor(255, 255, 255);
+        doc.text(
+          `Samples ${globalStart + 1}–${globalStart + sampleGroup.length} of ${Math.max(samples.length, 1)}  (continued)`,
+          MARGIN + 2, afterM + 3.5
+        );
+
+        // Update autoTable's top margin for this new page
+        data.settings.margin.top = afterM + 8;
+      },
+    });
+  }
+
+  // ── Signatories on last page ────────────────────────────────────────────────
+  doc.setPage(doc.getNumberOfPages());
+  const lastY = (doc as any).lastAutoTable?.finalY ?? 200;
+  const signSpace = 60;
+
+  if (lastY + signSpace > A4_H - 15) {
+    doc.addPage();
+    await drawCOAWatermark(doc, logo);
+    drawCOAHeader(doc, logo);
+    drawCOASignatories(
+      doc,
+      certificate.sign1Name, certificate.sign1Title, certificate.sign1SignatureImage,
+      certificate.sign2Name, certificate.sign2Title, certificate.sign2SignatureImage,
+      58
+    );
+  } else {
+    drawCOASignatories(
+      doc,
+      certificate.sign1Name, certificate.sign1Title, certificate.sign1SignatureImage,
+      certificate.sign2Name, certificate.sign2Title, certificate.sign2SignatureImage,
+      lastY + 8
+    );
+  }
+
+  // ── Footers on ALL pages ─────────────────────────────────────────────────────
+  drawCOAFooters(doc, doc.getNumberOfPages());
+
+  // ── Save ─────────────────────────────────────────────────────────────────────
+  const clientStr = sanitise(certificate.client);
+  const dateStr   = (certificate.dateReported || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
+  const certStr   = (certificate.certNumber   || 'COA').replace(/[^A-Za-z0-9-]/g, '');
+  doc.save(`COA_${clientStr}_${dateStr}_${certStr}.pdf`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SHARED helpers (used by Quotation)
 // ─────────────────────────────────────────────────────────────────────────────
 async function drawWatermark(doc: jsPDF, logoDataUrl: string | null): Promise<void> {
   doc.saveGraphicsState();
-  // @ts-ignore – jsPDF GState exists at runtime
+  // @ts-ignore
   (doc as any).setGState(new (doc as any).GState({ opacity: 0.07 }));
-
   if (logoDataUrl) {
-    // Large centred logo watermark
-    const size = 100; // mm
-    const x = (A4_W - size) / 2;
-    const y = (A4_H - size) / 2;
-    doc.addImage(logoDataUrl, 'PNG', x, y, size, size);
+    const size = 100;
+    doc.addImage(logoDataUrl, 'PNG', (A4_W - size) / 2, (A4_H - size) / 2, size, size);
   } else {
-    // Fallback text watermark
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(72);
     doc.setTextColor(180, 180, 180);
     doc.text('NWSC', A4_W / 2, A4_H / 2, { align: 'center', angle: 45 });
   }
-
   doc.restoreGraphicsState();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  SHARED: draw the branded header block
-//  Returns the Y position immediately below the header
-// ─────────────────────────────────────────────────────────────────────────────
 function drawHeader(
   doc: jsPDF,
   logoDataUrl: string | null,
-  badgeLabel: string,   // e.g. "CERTIFIED" or "OFFICIAL"
-  documentTitle: string // e.g. "WATER ANALYSIS CERTIFICATE"
+  badgeLabel: string,
+  documentTitle: string
 ): number {
-  const headerH = 42; // mm
-
-  // ── Background fill ──
-  doc.setFillColor(DARK_BLUE_R, DARK_BLUE_G, DARK_BLUE_B);
+  const headerH = 42;
+  doc.setFillColor(...DB);
   doc.rect(0, 0, A4_W, headerH, 'F');
 
-  // ── Gold accent line ──
-  doc.setDrawColor(GOLD_R, GOLD_G, GOLD_B);
+  doc.setDrawColor(...GD);
   doc.setLineWidth(1.2);
   doc.line(0, headerH, A4_W, headerH);
 
-  // ── Logo (top-left) ──
   if (logoDataUrl) {
-    // White circle background
     doc.setFillColor(255, 255, 255);
     doc.roundedRect(MARGIN - 1, 3, 22, 22, 2, 2, 'F');
     doc.addImage(logoDataUrl, 'PNG', MARGIN, 4, 20, 20);
   }
 
-  // ── Company name (centre) ──
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(255, 255, 255);
   doc.text('NKANA WATER SUPPLY AND SANITATION COMPANY', A4_W / 2, 10, { align: 'center' });
 
-  // ── Address & contacts ──
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
   doc.setTextColor(200, 220, 240);
@@ -147,79 +571,57 @@ function drawHeader(
   doc.text('Tel: +260 212 222488 / 221099 / 0971 223 458  |  Fax: +260 212 222490', A4_W / 2, 19.5, { align: 'center' });
   doc.text('headoffice@nwsc.com.zm  |  www.nwsc.zm', A4_W / 2, 24, { align: 'center' });
 
-  // ── Badge (top-right) ──
   const badgeW = 28;
   const badgeX = A4_W - MARGIN - badgeW;
-  doc.setFillColor(OCEAN_BLUE_R, OCEAN_BLUE_G, OCEAN_BLUE_B);
+  doc.setFillColor(...OB);
   doc.roundedRect(badgeX, 4, badgeW, 10, 1.5, 1.5, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(255, 255, 255);
   doc.text(badgeLabel, badgeX + badgeW / 2, 10.5, { align: 'center' });
 
-  // ── Document title ──
-  doc.setFillColor(OCEAN_BLUE_R, OCEAN_BLUE_G, OCEAN_BLUE_B);
+  doc.setFillColor(...OB);
   doc.rect(0, headerH + 1, A4_W, 10, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.setTextColor(255, 255, 255);
   doc.text(documentTitle, A4_W / 2, headerH + 7.5, { align: 'center' });
 
-  return headerH + 13; // Y below the title bar
+  return headerH + 13;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  SHARED: draw the footer on every page
-// ─────────────────────────────────────────────────────────────────────────────
 function drawFooters(doc: jsPDF, totalPages: number, leftLabel: string): void {
   const footerY = A4_H - 8;
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-
-    // Footer rule
-    doc.setDrawColor(OCEAN_BLUE_R, OCEAN_BLUE_G, OCEAN_BLUE_B);
+    doc.setDrawColor(...OB);
     doc.setLineWidth(0.4);
     doc.line(MARGIN, footerY - 2, A4_W - MARGIN, footerY - 2);
-
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(100, 100, 100);
-
-    // Left: classification
     doc.text(leftLabel, MARGIN, footerY + 1);
-
-    // Centre: slogan
     doc.setFont('helvetica', 'italic');
-    doc.setTextColor(DARK_BLUE_R, DARK_BLUE_G, DARK_BLUE_B);
+    doc.setTextColor(...DB);
     doc.text('Bigger, Better, Smarter', A4_W / 2, footerY + 1, { align: 'center' });
-
-    // Right: page number
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 100, 100);
     doc.text(`Page ${i} of ${totalPages}`, A4_W - MARGIN, footerY + 1, { align: 'right' });
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  SHARED: draw the signatories block at position Y
-//  Returns the Y position after the block
-// ─────────────────────────────────────────────────────────────────────────────
 function drawSignatories(
   doc: jsPDF,
   sign1Name: string, sign1Title: string, sign1Img?: string,
   sign2Name: string, sign2Title: string, sign2Img?: string,
   startY?: number
 ): number {
-  // Determine start position
   const y0 = startY ?? ((doc as any).lastAutoTable?.finalY ?? 210) + 12;
-
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
-  doc.setTextColor(DARK_BLUE_R, DARK_BLUE_G, DARK_BLUE_B);
+  doc.setTextColor(...DB);
   doc.text('AUTHORISED SIGNATORIES', MARGIN, y0);
-
-  // Divider
-  doc.setDrawColor(OCEAN_BLUE_R, OCEAN_BLUE_G, OCEAN_BLUE_B);
+  doc.setDrawColor(...OB);
   doc.setLineWidth(0.5);
   doc.line(MARGIN, y0 + 2, A4_W - MARGIN, y0 + 2);
 
@@ -232,321 +634,46 @@ function drawSignatories(
     [col2X, sign2Img, sign2Name, sign2Title],
   ] as [number, string | undefined, string, string][]) {
     if (!name && !title && !imgData) continue;
-
     let sigY = y0 + 6;
-
-    // Signature image
     if (imgData) {
-      try {
-        doc.addImage(imgData, 'PNG', colX, sigY, 42, 16);
-        sigY += 18;
-      } catch { /* skip corrupt image */ }
-    } else {
-      sigY += 16; // reserved space
-    }
-
-    // Signature line
-    doc.setDrawColor(DARK_BLUE_R, DARK_BLUE_G, DARK_BLUE_B);
+      try { doc.addImage(imgData, 'PNG', colX, sigY, 42, 16); sigY += 18; } catch { sigY += 16; }
+    } else { sigY += 16; }
+    doc.setDrawColor(...DB);
     doc.setLineWidth(0.6);
     doc.line(colX, sigY, colX + 70, sigY);
     sigY += 4;
-
-    // Name
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(30, 30, 30);
     doc.text(name || '________________________________', colX, sigY);
     sigY += 4;
-
-    // Title
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(80, 80, 80);
     doc.text(title || '', colX, sigY);
     sigY += 4;
-
-    // Date line
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(7);
     doc.setTextColor(120, 120, 120);
     doc.text('Date: ___________________________', colX, sigY);
     sigY += 2;
-
     if (sigY > maxY) maxY = sigY;
   }
-
   return maxY + 4;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  DOCUMENT 1: Certificate of Analysis (COA)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Generates and downloads a fully branded, multi-page COA PDF.
- *
- * Multi-sample pagination strategy:
- *   – leftmost 3 columns are always: Parameter | Unit | Limit
- *   – A4 page width (210mm) minus margins and those 3 fixed columns leaves
- *     room for exactly MAX_SAMPLE_COLS (6) sample columns per page
- *   – Excess samples flow to continuation pages with header + fixed cols repeated
- */
-export async function generateCOAPdf(certificate: Certificate): Promise<void> {
-  const MAX_SAMPLE_COLS = 6;  // sample columns per page
-  const doc = new jsPDF({ orientation: 'portrait', format: 'a4', unit: 'mm' });
-
-  // ── Load logo ──────────────────────────────────────────────────────────────
-  let logoDataUrl: string | null = null;
-  try { logoDataUrl = await loadImageAsDataUrl('/logo.png'); } catch { /* skip */ }
-
-  // ── Build sample page groups ───────────────────────────────────────────────
-  const samples = certificate.samples || [];
-  const sampleGroups: string[][] = [];
-  for (let i = 0; i < Math.max(samples.length, 1); i += MAX_SAMPLE_COLS) {
-    sampleGroups.push(samples.slice(i, i + MAX_SAMPLE_COLS));
-  }
-
-  // ── Filter out section headers from "data" rows for the table body ─────────
-  // We keep sections as their own special rows (see below)
-  const allRows = certificate.tableData;
-
-  let pdfPageIndex = 0; // tracks absolute PDF pages across all sample-groups
-
-  for (let groupIdx = 0; groupIdx < sampleGroups.length; groupIdx++) {
-    const sampleGroup = sampleGroups[groupIdx];
-    const globalSampleStartIdx = groupIdx * MAX_SAMPLE_COLS;
-
-    if (groupIdx > 0) {
-      doc.addPage();
-    }
-
-    // ── Watermark (page will be filled later with footer) ─────────────────
-    await drawWatermark(doc, logoDataUrl);
-
-    // ── Header ────────────────────────────────────────────────────────────
-    const afterHeaderY = drawHeader(doc, logoDataUrl, 'CERTIFIED', 'WATER ANALYSIS CERTIFICATE');
-    let curY = afterHeaderY + 2;
-
-    // ── Certificate metadata grid ─────────────────────────────────────────
-    // Draw a 2-col info table without depending on autoTable
-    const metaFields: [string, string][] = [
-      ['Certificate No', certificate.certNumber || '—'],
-      ['Client',         certificate.client      || '—'],
-      ['Date Reported',  certificate.dateReported || '—'],
-      ['Sample Type',    certificate.sampleType   || '—'],
-      ['Sample Source',  certificate.location     || '—'],
-      ['Date Sampled',   certificate.dateSampled  || '—'],
-    ];
-
-    const cellH  = 6.5;
-    const col1W  = 32;
-    const colValW = (A4_W - 2 * MARGIN - col1W * 2) / 2;
-    let mx = MARGIN;
-    let my = curY;
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-
-    metaFields.forEach(([label, val], fi) => {
-      const col = fi % 2;
-      const row = Math.floor(fi / 2);
-      const cellX = mx + col * (col1W + colValW);
-      const cellY = my + row * cellH;
-
-      // Label bg
-      doc.setFillColor(DARK_BLUE_R, DARK_BLUE_G, DARK_BLUE_B);
-      doc.rect(cellX, cellY, col1W, cellH - 0.5, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.text(label, cellX + 2, cellY + cellH - 2);
-
-      // Value bg
-      doc.setFillColor(245, 248, 255);
-      doc.rect(cellX + col1W, cellY, colValW, cellH - 0.5, 'F');
-      doc.setTextColor(30, 30, 30);
-      doc.setFont('helvetica', 'normal');
-      const displayVal = doc.splitTextToSize(val, colValW - 3);
-      doc.text(displayVal[0] || '', cellX + col1W + 2, cellY + cellH - 2);
-    });
-
-    curY = my + Math.ceil(metaFields.length / 2) * cellH + 4;
-
-    // ── Samples label bar (current group) ─────────────────────────────────
-    if (sampleGroups.length > 1) {
-      doc.setFillColor(OCEAN_BLUE_R, OCEAN_BLUE_G, OCEAN_BLUE_B);
-      doc.rect(MARGIN, curY, A4_W - 2 * MARGIN, 5.5, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7);
-      doc.setTextColor(255, 255, 255);
-      const label = `Samples ${globalSampleStartIdx + 1}–${globalSampleStartIdx + sampleGroup.length} of ${samples.length}  [Page group ${groupIdx + 1} of ${sampleGroups.length}]`;
-      doc.text(label, MARGIN + 2, curY + 4);
-      curY += 7;
-    }
-
-    // ── Parameters table ──────────────────────────────────────────────────
-    const limitHeader = certificate.sampleType === 'Drinking Water' ? 'WHO / ZABS Limit' :
-                        certificate.sampleType === 'Wastewater'     ? 'ZEMA Limit'       : 'Limit';
-
-    // Build header row
-    const tableHead = [['#', 'Parameter', 'Unit', limitHeader, ...sampleGroup]];
-
-    // Build body rows — section headers become a single wide cell
-    let paramCounter = 0;
-    const tableBody: (string | object)[][] = [];
-    const sectionRowIdxs: number[] = [];
-
-    allRows.forEach((row) => {
-      if (row.section) {
-        sectionRowIdxs.push(tableBody.length);
-        tableBody.push([{ content: row.section || '', colSpan: 4 + sampleGroup.length }]);
-      } else {
-        paramCounter++;
-        const resultCols = sampleGroup.map((_, si) => {
-          const absIdx = globalSampleStartIdx + si;
-          return row.results?.[absIdx] ?? '—';
-        });
-        tableBody.push([
-          String(paramCounter),
-          row.name  || '',
-          row.unit  || '',
-          row.limit || '',
-          ...resultCols,
-        ]);
-      }
-    });
-
-    // Column widths
-    const fixedW = {
-      0: 8,    // #
-      1: 48,   // Parameter
-      2: 18,   // Unit
-      3: 26,   // Limit
-    };
-    const usedW = fixedW[0] + fixedW[1] + fixedW[2] + fixedW[3];
-    const remainW = A4_W - 2 * MARGIN - usedW;
-    const sampleColW = sampleGroup.length > 0 ? remainW / sampleGroup.length : remainW;
-
-    const colStyles: Record<number, object> = {
-      0: { cellWidth: fixedW[0], halign: 'center' },
-      1: { cellWidth: fixedW[1] },
-      2: { cellWidth: fixedW[2], halign: 'center' },
-      3: { cellWidth: fixedW[3], halign: 'center' },
-    };
-    for (let s = 0; s < sampleGroup.length; s++) {
-      colStyles[4 + s] = { cellWidth: sampleColW, halign: 'center' };
-    }
-
-    autoTable(doc, {
-      head: tableHead,
-      body: tableBody,
-      startY: curY,
-      margin: { left: MARGIN, right: MARGIN },
-      theme: 'plain',
-      styles: {
-        fontSize: 7.5,
-        cellPadding: { top: 1.8, bottom: 1.8, left: 2, right: 2 },
-        overflow: 'linebreak',
-        valign: 'middle',
-      },
-      headStyles: {
-        fillColor: [DARK_BLUE_R, DARK_BLUE_G, DARK_BLUE_B] as [number,number,number],
-        textColor: [255, 255, 255] as [number,number,number],
-        fontStyle: 'bold',
-        fontSize: 7.5,
-        halign: 'center',
-      },
-      columnStyles: colStyles,
-      alternateRowStyles: {
-        fillColor: [LIGHT_BLUE_R, LIGHT_BLUE_G, LIGHT_BLUE_B] as [number,number,number],
-      },
-      rowPageBreak: 'auto',
-      // Style section-header rows
-      didParseCell(data) {
-        if (data.section === 'body' && sectionRowIdxs.includes(data.row.index)) {
-          data.cell.styles.fillColor = [OCEAN_BLUE_R, OCEAN_BLUE_G, OCEAN_BLUE_B] as [number,number,number];
-          data.cell.styles.textColor = [255, 255, 255] as [number,number,number];
-          data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.fontSize  = 7;
-        }
-      },
-      // Add watermark on every new page autoTable creates
-      didAddPage(data) {
-        void (async () => { await drawWatermark(doc, logoDataUrl); })();
-        // Re-draw the light header strip for continuation pages
-        doc.setFillColor(DARK_BLUE_R, DARK_BLUE_G, DARK_BLUE_B);
-        doc.rect(0, 0, A4_W, 8, 'F');
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(7);
-        doc.setTextColor(255, 255, 255);
-        doc.text(
-          `NKANA WATER SUPPLY AND SANITATION COMPANY  —  ${certificate.certNumber || ''}  (continued)`,
-          A4_W / 2, 5.5, { align: 'center' }
-        );
-      },
-    });
-
-    pdfPageIndex = doc.getNumberOfPages();
-  }
-
-  // ── Signatories (last page only) ──────────────────────────────────────────
-  doc.setPage(doc.getNumberOfPages());
-  const lastTableFinalY = (doc as any).lastAutoTable?.finalY ?? 220;
-
-  // Check if signatories fit on the current page; if not, add a new page
-  const spaceNeeded = 55; // mm for signatories block
-  if (lastTableFinalY + spaceNeeded > A4_H - 15) {
-    doc.addPage();
-    await drawWatermark(doc, logoDataUrl);
-    // Minimal continuation header
-    doc.setFillColor(DARK_BLUE_R, DARK_BLUE_G, DARK_BLUE_B);
-    doc.rect(0, 0, A4_W, 8, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    doc.setTextColor(255, 255, 255);
-    doc.text(`NKANA WATER SUPPLY AND SANITATION COMPANY  —  ${certificate.certNumber || ''}`, A4_W / 2, 5.5, { align: 'center' });
-    drawSignatories(
-      doc,
-      certificate.sign1Name, certificate.sign1Title, certificate.sign1SignatureImage,
-      certificate.sign2Name, certificate.sign2Title, certificate.sign2SignatureImage,
-      14
-    );
-  } else {
-    drawSignatories(
-      doc,
-      certificate.sign1Name, certificate.sign1Title, certificate.sign1SignatureImage,
-      certificate.sign2Name, certificate.sign2Title, certificate.sign2SignatureImage,
-    );
-  }
-
-  // ── Footers on ALL pages ───────────────────────────────────────────────────
-  drawFooters(doc, doc.getNumberOfPages(), 'NWSC — CERTIFIED');
-
-  // ── Save ──────────────────────────────────────────────────────────────────
-  const client = sanitiseFilename(certificate.client);
-  const date   = (certificate.dateReported || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
-  const cert   = (certificate.certNumber  || 'COA').replace(/[^A-Za-z0-9-]/g, '');
-  doc.save(`COA_${client}_${date}_${cert}.pdf`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  DOCUMENT 2: Service Quotation
 // ─────────────────────────────────────────────────────────────────────────────
-
 export async function generateQuotationPdf(quotation: Quotation): Promise<void> {
   const doc = new jsPDF({ orientation: 'portrait', format: 'a4', unit: 'mm' });
-
-  // ── Load logo ─────────────────────────────────────────────────────────────
   let logoDataUrl: string | null = null;
-  try { logoDataUrl = await loadImageAsDataUrl('/logo.png'); } catch { /* skip */ }
+  try { logoDataUrl = await loadImg('/logo.png'); } catch { /* skip */ }
 
-  // ── Page 1 watermark ──────────────────────────────────────────────────────
   await drawWatermark(doc, logoDataUrl);
-
-  // ── Header ────────────────────────────────────────────────────────────────
   const afterHeaderY = drawHeader(doc, logoDataUrl, 'OFFICIAL', 'SERVICE QUOTATION');
   let curY = afterHeaderY + 2;
 
-  // ── Metadata grid ─────────────────────────────────────────────────────────
   const metaFields: [string, string][] = [
     ['Quote No',     quotation.quoteNumber    || '—'],
     ['Date',         quotation.date            || '—'],
@@ -567,14 +694,12 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
     const row  = Math.floor(fi / 2);
     const cellX = MARGIN + col * (col1W + colValW);
     const cellY = curY + row * cellH;
-
-    doc.setFillColor(DARK_BLUE_R, DARK_BLUE_G, DARK_BLUE_B);
+    doc.setFillColor(...DB);
     doc.rect(cellX, cellY, col1W, cellH - 0.5, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
     doc.text(label, cellX + 2, cellY + cellH - 2);
-
     doc.setFillColor(245, 248, 255);
     doc.rect(cellX + col1W, cellY, colValW, cellH - 0.5, 'F');
     doc.setTextColor(30, 30, 30);
@@ -585,10 +710,9 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
 
   curY += Math.ceil(metaFields.length / 2) * cellH + 4;
 
-  // ── Samples strip (if any) ────────────────────────────────────────────────
   const samples = quotation.samples || [];
   if (samples.length > 0) {
-    doc.setFillColor(OCEAN_BLUE_R, OCEAN_BLUE_G, OCEAN_BLUE_B);
+    doc.setFillColor(...OB);
     doc.rect(MARGIN, curY, A4_W - 2 * MARGIN, 6, 'F');
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
@@ -597,16 +721,13 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
     curY += 8;
   }
 
-  // ── Items table ───────────────────────────────────────────────────────────
-  const formatCurrency = kwacha;
-
   const tableBody = quotation.items.map((item, idx) => [
     String(idx + 1),
     item.parameterName,
     String(item.quantity),
-    formatCurrency(item.unitPrice),
-    formatCurrency(item.tax),
-    formatCurrency(item.amount),
+    kwacha(item.unitPrice),
+    kwacha(item.tax),
+    kwacha(item.amount),
   ]);
 
   autoTable(doc, {
@@ -615,17 +736,8 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
     startY: curY,
     margin: { left: MARGIN, right: MARGIN },
     theme: 'plain',
-    styles: {
-      fontSize: 8,
-      cellPadding: { top: 2, bottom: 2, left: 3, right: 3 },
-      overflow: 'linebreak',
-    },
-    headStyles: {
-      fillColor: [OCEAN_BLUE_R, OCEAN_BLUE_G, OCEAN_BLUE_B] as [number,number,number],
-      textColor: [255, 255, 255] as [number,number,number],
-      fontStyle: 'bold',
-      fontSize: 8,
-    },
+    styles: { fontSize: 8, cellPadding: { top: 2, bottom: 2, left: 3, right: 3 }, overflow: 'linebreak' },
+    headStyles: { fillColor: OB, textColor: [255,255,255] as [number,number,number], fontStyle: 'bold', fontSize: 8 },
     columnStyles: {
       0: { cellWidth: 10, halign: 'center' },
       1: { cellWidth: 72 },
@@ -634,70 +746,55 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
       4: { cellWidth: 28, halign: 'right' },
       5: { cellWidth: 28, halign: 'right' },
     },
-    alternateRowStyles: {
-      fillColor: [LIGHT_BLUE_R, LIGHT_BLUE_G, LIGHT_BLUE_B] as [number,number,number],
-    },
+    alternateRowStyles: { fillColor: [235, 240, 248] as [number,number,number] },
     rowPageBreak: 'auto',
     didAddPage() {
       void (async () => { await drawWatermark(doc, logoDataUrl); })();
-      // Minimal continuation header
-      doc.setFillColor(DARK_BLUE_R, DARK_BLUE_G, DARK_BLUE_B);
+      doc.setFillColor(...DB);
       doc.rect(0, 0, A4_W, 8, 'F');
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7);
       doc.setTextColor(255, 255, 255);
-      doc.text(
-        `NKANA WATER SUPPLY AND SANITATION COMPANY  —  ${quotation.quoteNumber || ''}  (continued)`,
-        A4_W / 2, 5.5, { align: 'center' }
-      );
+      doc.text(`NKANA WATER SUPPLY AND SANITATION COMPANY  —  ${quotation.quoteNumber || ''}  (continued)`, A4_W / 2, 5.5, { align: 'center' });
     },
   });
 
-  // ── Totals summary block ──────────────────────────────────────────────────
   const tableEndY = (doc as any).lastAutoTable?.finalY ?? curY + 40;
   const totalsBlockW = 90;
   const totalsX      = A4_W - MARGIN - totalsBlockW;
   let   ty           = tableEndY + 6;
 
-  // Check if totals fit; if not, new page
   if (ty + 30 > A4_H - 15) {
     doc.addPage();
     await drawWatermark(doc, logoDataUrl);
-    doc.setFillColor(DARK_BLUE_R, DARK_BLUE_G, DARK_BLUE_B);
+    doc.setFillColor(...DB);
     doc.rect(0, 0, A4_W, 8, 'F');
     ty = 14;
   }
 
-  // Subtotal row
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(60, 60, 60);
   doc.text('Subtotal', totalsX, ty);
-  doc.text(formatCurrency(quotation.subtotal), A4_W - MARGIN, ty, { align: 'right' });
+  doc.text(kwacha(quotation.subtotal), A4_W - MARGIN, ty, { align: 'right' });
   ty += 6;
-
-  // VAT row
   doc.setTextColor(180, 80, 0);
   doc.text('Total VAT (16%)', totalsX, ty);
-  doc.text(formatCurrency(quotation.totalTax), A4_W - MARGIN, ty, { align: 'right' });
+  doc.text(kwacha(quotation.totalTax), A4_W - MARGIN, ty, { align: 'right' });
   ty += 6;
-
-  // Grand Total — highlighted box
-  doc.setFillColor(DARK_BLUE_R, DARK_BLUE_G, DARK_BLUE_B);
+  doc.setFillColor(...DB);
   doc.roundedRect(totalsX - 4, ty - 4, totalsBlockW + 4 + MARGIN, 12, 2, 2, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
   doc.text('GRAND TOTAL', totalsX, ty + 4);
-  doc.text(formatCurrency(quotation.totalAmount), A4_W - MARGIN, ty + 4, { align: 'right' });
+  doc.text(kwacha(quotation.totalAmount), A4_W - MARGIN, ty + 4, { align: 'right' });
   ty += 16;
 
-  // ── Signatories ───────────────────────────────────────────────────────────
-  const signSpace = 55;
-  if (ty + signSpace > A4_H - 15) {
+  if (ty + 55 > A4_H - 15) {
     doc.addPage();
     await drawWatermark(doc, logoDataUrl);
-    doc.setFillColor(DARK_BLUE_R, DARK_BLUE_G, DARK_BLUE_B);
+    doc.setFillColor(...DB);
     doc.rect(0, 0, A4_W, 8, 'F');
     ty = 14;
   }
@@ -709,33 +806,27 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
     ty
   );
 
-  // ── Footers ───────────────────────────────────────────────────────────────
   drawFooters(doc, doc.getNumberOfPages(), 'NWSC — OFFICIAL');
 
-  // ── Save ──────────────────────────────────────────────────────────────────
-  const client = sanitiseFilename(quotation.client);
+  const client = sanitise(quotation.client);
   const date   = (quotation.date || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
   const qno    = (quotation.quoteNumber || 'QT').replace(/[^A-Za-z0-9-]/g, '');
   doc.save(`QT_${client}_${date}_${qno}.pdf`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  COA CSV EXPORT
-//  UTF-8 BOM included so Excel reads ≤ µ ° ² ³ correctly
+//  COA CSV EXPORT  (UTF-8 BOM for Excel symbol compatibility)
 // ─────────────────────────────────────────────────────────────────────────────
 export function exportCOACSV(certificate: Certificate): void {
-  const BOM = '\uFEFF'; // UTF-8 byte-order mark
-
+  const BOM = '\uFEFF';
   const samples = certificate.samples || [];
 
-  // Header row: fixed cols + one col per sample
   const headerRow = [
     'Certificate No', 'Client', 'Date Reported', 'Sample Type',
     'Sample Source', 'Parameter', 'Unit', 'Limit',
     ...samples.map((s, i) => s || `Sample ${i + 1}`)
   ];
 
-  // Body rows: one row per parameter (skip section headers)
   const bodyRows = certificate.tableData
     .filter(row => !row.section)
     .map(row => [
@@ -755,8 +846,7 @@ export function exportCOACSV(certificate: Certificate): void {
     .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     .join('\r\n');
 
-  // File name: COA_[ClientName]_[Date]_[CertNo].csv
-  const clientClean = sanitiseFilename(certificate.client);
+  const clientClean = sanitise(certificate.client);
   const dateClean   = (certificate.dateReported || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
   const certClean   = (certificate.certNumber   || 'COA').replace(/[^A-Za-z0-9-]/g, '');
   const filename    = `COA_${clientClean}_${dateClean}_${certClean}.csv`;
@@ -764,9 +854,7 @@ export function exportCOACSV(certificate: Certificate): void {
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  a.click();
+  a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
 }
 
@@ -793,7 +881,7 @@ export function exportQuotationCSV(quotation: Quotation): void {
     item.unitPrice.toFixed(2),
     item.tax.toFixed(2),
     item.amount.toFixed(2),
-    idx === 0 ? quotation.totalAmount.toFixed(2) : '', // Grand total on first row only
+    idx === 0 ? quotation.totalAmount.toFixed(2) : '',
   ]);
 
   const csvRows = [headerRow, ...bodyRows];
@@ -801,7 +889,7 @@ export function exportQuotationCSV(quotation: Quotation): void {
     .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     .join('\r\n');
 
-  const clientClean = sanitiseFilename(quotation.client);
+  const clientClean = sanitise(quotation.client);
   const dateClean   = (quotation.date || new Date().toISOString().slice(0, 10)).replace(/-/g, '');
   const qnoClean    = (quotation.quoteNumber || 'QT').replace(/[^A-Za-z0-9-]/g, '');
   const filename    = `QT_${clientClean}_${dateClean}_${qnoClean}.csv`;
@@ -809,8 +897,6 @@ export function exportQuotationCSV(quotation: Quotation): void {
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  a.click();
+  a.href = url; a.download = filename; a.click();
   URL.revokeObjectURL(url);
 }
