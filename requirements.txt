@@ -1,0 +1,5 @@
+# NWSC PDF/CSV Generation — Python dependencies
+# Install via: pip install -r requirements.txt
+
+reportlab>=4.0.0    # Core PDF generation (platypus, canvas, flowables)
+pillow>=10.0.0      # Image decoding required by reportlab's ImageReader
