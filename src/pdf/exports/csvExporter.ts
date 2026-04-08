@@ -4,7 +4,9 @@ import { sanitizeFilename, formatDateString } from '../utils/formatters';
 
 export function exportCOA(certificate: Certificate): void {
   generateCOA_CSV(certificate);
-  generateCOA_Excel(certificate);
+  setTimeout(() => {
+    generateCOA_Excel(certificate);
+  }, 500);
 }
 
 function generateCOA_CSV(certificate: Certificate): void {
@@ -81,7 +83,9 @@ function generateCOA_Excel(certificate: Certificate): void {
 
 export function exportQuotation(quotation: Quotation): void {
   generateQuotation_CSV(quotation);
-  generateQuotation_Excel(quotation);
+  setTimeout(() => {
+    generateQuotation_Excel(quotation);
+  }, 500);
 }
 
 function generateQuotation_CSV(quotation: Quotation): void {

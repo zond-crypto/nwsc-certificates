@@ -105,7 +105,7 @@ export async function generateCOAPdf(certificate: Certificate): Promise<void> {
       columnStyles: colStyles,
       alternateRowStyles: { fillColor: [235, 240, 248] as [number,number,number] },
       rowPageBreak: 'avoid',
-      didAddPage: (data) => {
+      didDrawPage: (data) => {
         void (async () => { await drawSharedWatermark(doc, logo); })();
         const ah = drawSharedHeader(doc, logo, 'WATER ANALYSIS CERTIFICATE');
         const am = drawSharedMetadata(doc, row1, row2, ah);

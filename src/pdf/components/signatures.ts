@@ -3,8 +3,8 @@ import { DB, OB, A4_W, MARGIN } from '../constants';
 
 export function drawSharedSignatories(
   doc: jsPDF,
-  s1Name: string, s1Title: string, s1Img?: string,
-  s2Name: string, s2Title: string, s2Img?: string,
+  s1Name: string, s1Title: string, s1Img: string | undefined,
+  s2Name: string, s2Title: string, s2Img: string | undefined,
   startY: number = 220
 ): number {
   doc.setFont('helvetica', 'bold');

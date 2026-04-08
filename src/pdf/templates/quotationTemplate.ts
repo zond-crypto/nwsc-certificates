@@ -69,7 +69,7 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
     },
     alternateRowStyles: { fillColor: [235, 240, 248] as [number,number,number] },
     rowPageBreak: 'auto',
-    didAddPage: (data) => {
+    didDrawPage: (data) => {
       void (async () => { await drawSharedWatermark(doc, logo); })();
       const ah = drawSharedHeader(doc, logo, 'QUOTATION');
       const am = drawSharedMetadata(doc, row1, row2, ah);
