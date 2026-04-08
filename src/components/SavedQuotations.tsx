@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Trash2, FolderOpen, Printer, Calculator, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { getQuotationStatus } from '../utils/quotationUtils';
+import { generateQuotationPdf } from '../utils/pdfGenerators';
 
 interface Props {
   quotations: Quotation[];
@@ -135,9 +136,13 @@ export function SavedQuotations({ quotations, onLoad, onDelete, onClearAll }: Pr
                         <Button size="sm" className="flex-1 bg-[#003d7a] hover:bg-[#002a5a]" onClick={() => onLoad(quote.id)}>
                           <FolderOpen className="w-3 h-3 mr-1" /> Open
                         </Button>
-                        <Button size="sm" variant="outline" className="flex-1 border-[#e8b400] text-[#d4a200] hover:bg-[#fff9e6]" onClick={() => {
-                          onLoad(quote.id);
-                          setTimeout(() => window.print(), 350);
+                        <Button size="sm" variant="outline" className="flex-1 border-[#e8b400] text-[#d4a200] hover:bg-[#fff9e6]" onClick={async () => {
+                          try {
+                            await generateQuotationPdf(quote);
+                            toast.success('PDF downloaded!');
+                          } catch (error) {
+                            toast.error('PDF generation failed');
+                          }
                         }}>
                           <Printer className="w-3 h-3 mr-1" /> PDF
                         </Button>

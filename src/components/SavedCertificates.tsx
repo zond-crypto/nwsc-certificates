@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Trash2, FolderOpen, Printer, Search } from 'lucide-react';
 import { toast } from 'sonner';
+import { generateCOAPdf } from '../utils/pdfGenerators';
 
 interface Props {
   certificates: Certificate[];
@@ -72,9 +73,13 @@ export function SavedCertificates({ certificates, onLoad, onDelete, onClearAll }
                 <Button size="sm" className="flex-1 bg-[#0072ce] hover:bg-[#0061b0]" onClick={() => onLoad(cert.id)}>
                   <FolderOpen className="w-3 h-3 mr-1" /> Open
                 </Button>
-                <Button size="sm" variant="outline" className="flex-1 border-[#e8b400] text-[#d4a200] hover:bg-[#fff9e6]" onClick={() => {
-                  onLoad(cert.id);
-                  setTimeout(() => window.print(), 300);
+                <Button size="sm" variant="outline" className="flex-1 border-[#e8b400] text-[#d4a200] hover:bg-[#fff9e6]" onClick={async () => {
+                  try {
+                    await generateCOAPdf(cert);
+                    toast.success('PDF downloaded!');
+                  } catch (error) {
+                    toast.error('PDF generation failed');
+                  }
                 }}>
                   <Printer className="w-3 h-3 mr-1" /> PDF
                 </Button>

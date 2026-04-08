@@ -11,6 +11,7 @@ import autoTable from 'jspdf-autotable';
 import { NkanaLogo } from './Logo';
 import { PDFPreviewModal, generateCertificatePreviewHTML } from './PDFPreviewModal';
 import { buildDocumentFilename } from '../utils/fileNaming';
+import { generateCOAPdf, exportCOACSV } from '../utils/pdfGenerators';
 
 interface Props {
   certificate: Certificate;
@@ -227,6 +228,7 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
     setCertificate(prev => ({
       ...prev,
       [`${signType}SignatureId`]: signatureId,
+      [`${signType}SignatureImage`]: signature.imageDataUrl,
       [`${signType}Name`]: signature.fullName,
       [`${signType}Title`]: signature.role
     }));
@@ -248,148 +250,23 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
 
   // ── PDF Generation ────────────────────────────────────────────────────
   const downloadPDF = useCallback(async () => {
-    const doc = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-
-    // Watermark
-    doc.saveGraphicsState();
-    (doc as any).setGState(new (doc as any).GState({ opacity: 0.08 }));
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(60);
-    doc.setTextColor(200, 200, 200);
-    doc.text('CERTIFIED', pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
-    doc.restoreGraphicsState();
-
-    // Optional logo injection
-    const loadImage = (src: string): Promise<string> => {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.src = src;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) return reject('No canvas context');
-          ctx.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL('image/png'));
-        };
-        img.onerror = () => reject('Logo load failed');
-      });
-    };
-
     try {
-      const logoDataUrl = await loadImage('/logo.png');
-      doc.addImage(logoDataUrl, 'PNG', 20, 15, 22, 22);
-    } catch {
-      // fallback: just keep text header
+      await generateCOAPdf(certificate);
+      toast.success('PDF downloaded successfully!');
+    } catch (error) {
+      console.error('PDF generation failed', error);
+      toast.error('Failed to generate PDF');
     }
-
-    // Header
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.text('NKANA WATER SUPPLY AND SANITATION COMPANY', pageWidth / 2, 20, { align: 'center' });
-    doc.setFontSize(12);
-    doc.text('Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia.', pageWidth / 2, 30, { align: 'center' });
-    doc.setFontSize(10);
-    doc.text('Tel: +260 212 222488 / 221099 / 0971 223 458  |  Fax: +260 212 222490', pageWidth / 2, 35, { align: 'center' });
-    doc.text('headoffice@nwsc.com.zm  |  www.nwsc.zm', pageWidth / 2, 40, { align: 'center' });
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.text('WATER ANALYSIS CERTIFICATE', pageWidth / 2, 52, { align: 'center' });
-    doc.setFont('helvetica', 'normal');
-
-    // Certificate details
-    doc.setFontSize(10);
-    doc.text(`Certificate No: ${certificate.certNumber}`, 20, 65);
-    doc.text(`Client: ${certificate.client}`, 20, 72);
-    doc.text(`Date Reported: ${certificate.dateReported}`, 20, 79);
-    doc.text(`Sample Type: ${certificate.sampleType}`, 20, 86);
-    doc.text(`Sample Source: ${certificate.location}`, 20, 93);
-    doc.text(`Samples: ${(certificate.samples || []).join(', ')}`, 20, 100);
-
-    const tableData = certificate.tableData
-      .filter(row => !row.section)
-      .map(row => [
-        row.name || '',
-        row.unit || '',
-        row.limit || '',
-        ...(certificate.samples || []).map((_, i) => row.results?.[i] || '')
-      ]);
-
-    autoTable(doc, {
-      head: [['Parameter', 'Unit', 'Limit', ...((certificate.samples || []))]],
-      body: tableData,
-      startY: 108,
-      styles: { fontSize: 8, overflow: 'linebreak', cellWidth: 'wrap' },
-      columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 20 },
-        2: { cellWidth: 25 }
-      },
-      headStyles: { fillColor: [26, 80, 153] }
-    });
-
-    const signY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : pageHeight - 60;
-
-    if (certificate.sign1Name || certificate.sign1Title || certificate.sign1SignatureImage || certificate.sign2Name || certificate.sign2Title || certificate.sign2SignatureImage) {
-      doc.setFont('helvetica', 'bold');
-      doc.text('Signatories', 20, signY);
-
-      if (certificate.sign1Name || certificate.sign1Title || certificate.sign1SignatureImage) {
-        doc.setFont('helvetica', 'normal');
-        if (certificate.sign1SignatureImage) {
-          try { doc.addImage(certificate.sign1SignatureImage, 'PNG', 20, signY + 5, 35, 15); } catch {}
-        }
-        doc.text(`${certificate.sign1Name || 'Name not provided'}`, 20, signY + 25);
-        doc.text(`${certificate.sign1Title || 'Title not provided'}`, 20, signY + 30);
-      }
-
-      if (certificate.sign2Name || certificate.sign2Title || certificate.sign2SignatureImage) {
-        doc.setFont('helvetica', 'normal');
-        if (certificate.sign2SignatureImage) {
-          try { doc.addImage(certificate.sign2SignatureImage, 'PNG', 120, signY + 5, 35, 15); } catch {}
-        }
-        doc.text(`${certificate.sign2Name || 'Name not provided'}`, 120, signY + 25);
-        doc.text(`${certificate.sign2Title || 'Title not provided'}`, 120, signY + 30);
-      }
-    }
-
-    const pageCount = doc.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'italic');
-      doc.text('Bigger, Better, Smarter', pageWidth / 2, pageHeight - 10, { align: 'center' });
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Page ${i} of ${pageCount}`, pageWidth - 20, pageHeight - 10, { align: 'right' });
-    }
-
-    doc.save(buildDocumentFilename('COA', certificate.client, 'pdf'));
-    toast.success('PDF downloaded successfully!');
   }, [certificate]);
 
   const exportCSV = useCallback(() => {
-    const headers = ['Parameter', 'Unit', 'Limit', ...certificate.samples];
-    const rows = certificate.tableData
-      .filter(row => !row.section)
-      .map(row => [row.name || '', row.unit || '', row.limit || '', ...row.results]);
-
-    const csvContent = [headers, ...rows]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
-      .join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = buildDocumentFilename('COA', certificate.client, 'csv');
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("CSV exported successfully!");
+    try {
+      exportCOACSV(certificate);
+      toast.success("CSV exported successfully!");
+    } catch (error) {
+      console.error('CSV export failed', error);
+      toast.error('Failed to export CSV');
+    }
   }, [certificate]);
 
   // ── Print Layout Calculation ──────────────────────────────────────────

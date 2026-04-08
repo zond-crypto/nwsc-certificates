@@ -8,8 +8,9 @@ import { Plus, X, Printer, Save, FileDown, Search, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { buildDocumentFilename } from '../utils/fileNaming';
 import { PDFPreviewModal, generateQuotationPreviewHTML } from './PDFPreviewModal';
+import { buildDocumentFilename } from '../utils/fileNaming';
+import { generateQuotationPdf, exportQuotationCSV } from '../utils/pdfGenerators';
 import { calculateExpiryDate, formatDisplayDate, getExpiryWarningMessage } from '../utils/quotationUtils';
 
 interface Props {
@@ -141,172 +142,23 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
   const formatCurrency = (val: number) => `K ${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const exportPDF = async () => {
-    const doc = new jsPDF({ orientation: 'portrait', format: 'a4' });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-
-    // Watermark
-    doc.saveGraphicsState();
-    (doc as any).setGState(new (doc as any).GState({ opacity: 0.08 }));
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(60);
-    doc.setTextColor(200, 200, 200);
-    doc.text('OFFICIAL', pageWidth / 2, pageHeight / 2, { align: 'center', angle: 45 });
-    doc.restoreGraphicsState();
-
-    // Optional logo injection
-    const loadImage = (src: string): Promise<string> => {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.src = src;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-          if (!ctx) return reject('No canvas context');
-          ctx.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL('image/png'));
-        };
-        img.onerror = () => reject('Logo load failed');
-      });
-    };
-
     try {
-      const logoDataUrl = await loadImage('/logo.png');
-      doc.addImage(logoDataUrl, 'PNG', 15, 12, 22, 22);
-    } catch {
-      // fallback skip
+      await generateQuotationPdf(quotation);
+      toast.success('PDF downloaded successfully!');
+    } catch (error) {
+      console.error('PDF generation failed', error);
+      toast.error('Failed to generate PDF');
     }
-
-    // Header
-    doc.setFillColor(0, 61, 122);
-    doc.rect(0, 0, 210, 40, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('NKANA WATER SUPPLY AND SANITATION COMPANY', 105, 12, { align: 'center' });
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Mutondo Crescent, Riverside, Box 20982 Kitwe, Zambia', 105, 18, { align: 'center' });
-    doc.text('Tel: +260 212 222488 | Email: headoffice@nwsc.com.zm', 105, 22, { align: 'center' });
-    doc.setTextColor(232, 180, 0);
-    doc.setFontSize(14);
-    doc.text('SERVICE QUOTATION', 105, 30, { align: 'center' });
-
-    // Meta
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-    doc.text(`Quote No: ${quotation.quoteNumber}`, 15, 50);
-    if (quotation.quotationCode) {
-      doc.text(`Code: ${quotation.quotationCode}`, 15, 55);
-    }
-    doc.text(`Date: ${quotation.date}`, 150, 50);
-    doc.text(`Valid Until: ${quotation.validUntil}`, 150, 55);
-    doc.text(`Client: ${quotation.client}`, 15, 65);
-    doc.text(`Address: ${quotation.clientAddress}`, 15, 70);
-
-    doc.text(`Samples: ${(quotation.samples || []).join(', ')}`, 15, 77);
-
-    // Table
-    const body = quotation.items.map((item, idx) => [
-      idx + 1,
-      item.parameterName,
-      item.quantity,
-      formatCurrency(item.unitPrice),
-      formatCurrency(item.tax),
-      formatCurrency(item.amount)
-    ]);
-
-    autoTable(doc, {
-      startY: 85,
-      head: [['#', 'Description', 'Qty', 'Unit Price', 'Tax (16%)', 'Subtotal']],
-      body: body,
-      theme: 'grid',
-      headStyles: { fillColor: [0, 61, 122] },
-      styles: { fontSize: 9, overflow: 'linebreak', cellWidth: 'wrap' }
-    });
-
-    // Totals
-    const finalY = (doc as any).lastAutoTable.finalY + 10;
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Subtotal:`, 140, finalY);
-    doc.text(formatCurrency(quotation.subtotal), 180, finalY, { align: 'right' });
-    doc.text(`Total VAT (16%):`, 140, finalY + 7);
-    doc.text(formatCurrency(quotation.totalTax), 180, finalY + 7, { align: 'right' });
-    doc.setFillColor(232, 180, 0);
-    doc.rect(135, finalY + 10, 60, 10, 'F');
-    doc.setTextColor(0, 0, 0);
-    doc.text(`GRAND TOTAL:`, 140, finalY + 16);
-    doc.text(formatCurrency(quotation.totalAmount), 180, finalY + 16, { align: 'right' });
-
-    // Signatories
-    if (quotation.sign1Name || quotation.sign1Title || quotation.sign1SignatureImage || quotation.sign2Name || quotation.sign2Title || quotation.sign2SignatureImage) {
-      const signY = finalY + 35;
-      doc.setFont('helvetica', 'bold');
-      doc.text('Signatories', 20, signY);
-
-      if (quotation.sign1Name || quotation.sign1Title || quotation.sign1SignatureImage) {
-        if (quotation.sign1SignatureImage) {
-          try { doc.addImage(quotation.sign1SignatureImage, 'PNG', 20, signY + 5, 40, 15); } catch {}
-        }
-        doc.setFont('helvetica', 'normal');
-        doc.text(`${quotation.sign1Name || 'Name not provided'}`, 40, signY + 30, { align: 'center' });
-        doc.text(`${quotation.sign1Title || 'Title not provided'}`, 40, signY + 35, { align: 'center' });
-      }
-
-      if (quotation.sign2Name || quotation.sign2Title || quotation.sign2SignatureImage) {
-        if (quotation.sign2SignatureImage) {
-          try { doc.addImage(quotation.sign2SignatureImage, 'PNG', 130, signY + 5, 40, 15); } catch {}
-        }
-        doc.setFont('helvetica', 'normal');
-        doc.text(`${quotation.sign2Name || '(Authorized Officer)'}`, 170, signY + 30, { align: 'center' });
-        doc.text(`${quotation.sign2Title || 'Title not provided'}`, 170, signY + 35, { align: 'center' });
-      }
-    }
-
-    doc.save(buildDocumentFilename('Quotation', quotation.client, 'pdf'));
   };
 
   const exportCSV = () => {
-    let csv = `NKANA WATER SUPPLY AND SANITATION COMPANY,,,...\n`;
-    csv += `SERVICE QUOTATION,,,...\n`;
-    csv += `,,,...\n`;
-
-    csv += `Quote No:,"${quotation.quoteNumber}",Client:,"${quotation.client}",Date:,"${quotation.date}"\n`;
-    if (quotation.quotationCode) {
-      csv += `Code:,"${quotation.quotationCode}",Valid Until:,"${quotation.validUntil}",,\n`;
-    } else {
-      csv += `Valid Until:,"${quotation.validUntil}",,,\n`;
+    try {
+      exportQuotationCSV(quotation);
+      toast.success('CSV exported successfully!');
+    } catch (error) {
+      console.error('CSV export failed', error);
+      toast.error('Failed to export CSV');
     }
-    csv += `,,,...\n`;
-
-    csv += `#,Description,Qty,Unit Price,Tax (16%),Subtotal\n`;
-
-    quotation.items.forEach((item, idx) => {
-      csv += `${idx + 1},"${item.parameterName}",${item.quantity},"K ${item.unitPrice.toFixed(2)}",`;
-      csv += `"K ${item.tax.toFixed(2)}",`;
-      csv += `"K ${item.amount.toFixed(2)}"\n`;
-    });
-
-    csv += `,,,...\n`;
-    csv += `Subtotal,,"K ${quotation.subtotal.toFixed(2)}"\n`;
-    csv += `Total VAT (16%),,"K ${quotation.totalTax.toFixed(2)}"\n`;
-    csv += `Grand Total,,"K ${quotation.totalAmount.toFixed(2)}"\n`;
-
-    csv += `,,,...\n`;
-    csv += `Signed By:,"${quotation.sign1Name} (${quotation.sign1Title})",,,\n`;
-    csv += `Signed By:,"${quotation.sign2Name} (${quotation.sign2Title})",,,\n`;
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = buildDocumentFilename('Quotation', quotation.client, 'csv');
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('CSV exported!');
   };
 
   return (

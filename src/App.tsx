@@ -12,6 +12,7 @@ import { RegulatoryManager } from './components/RegulatoryManager';
 import { SignatureManager } from './components/SignatureManager';
 import { loadSignatures, saveSignatures } from './utils/signatures';
 import { Signature } from './types';
+import { generateCOAPdf, generateQuotationPdf } from './utils/pdfGenerators';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Plus, Save, Printer, FileText, FolderOpen, Database, ShieldCheck, Settings, Calculator, FileCheck, Droplets } from 'lucide-react';
@@ -215,9 +216,26 @@ export default function App() {
   };
 
   const handleNew = () => {
-    if (activeModule === 'certificates') setCurrentCert(generateNewCertificate(savedCerts.length));
+    if (activeModule === 'certificates') setCurrentCert(normaliseCert(generateNewCertificate(savedCerts.length)));
     else setCurrentQuotation(generateNewQuotation(savedQuotations.length));
     setActiveTab("editor");
+  };
+
+  const handleGlobalPrint = async () => {
+    if (activeTab === 'editor') {
+      try {
+        if (activeModule === 'certificates') {
+          await generateCOAPdf(currentCert);
+        } else {
+          await generateQuotationPdf(currentQuotation);
+        }
+        toast.success('PDF downloaded!');
+      } catch (err) {
+        toast.error('PDF generation failed');
+      }
+    } else {
+      window.print();
+    }
   };
 
   return (
@@ -255,7 +273,7 @@ export default function App() {
            <div className="flex items-center gap-1.5">
               <Button variant="ghost" size="sm" onClick={handleNew} className="text-white hover:bg-white/20 border border-white/20 h-8 px-2.5 text-xs"><Plus className="w-3.5 h-3.5 sm:mr-1" /> New</Button>
               <Button variant="ghost" size="sm" onClick={activeModule === 'certificates' ? handleSaveCert : handleSaveQuote} className="text-white hover:bg-white/20 border border-white/20 h-8 px-2.5 text-xs"><Save className="w-3.5 h-3.5" /></Button>
-              <Button variant="secondary" size="sm" onClick={() => window.print()} className="bg-[#e8b400] text-[#1a1a00] hover:bg-[#d4a200] h-8 px-2.5 text-xs font-semibold"><Printer className="w-3.5 h-3.5" /></Button>
+              <Button variant="secondary" size="sm" onClick={handleGlobalPrint} className="bg-[#e8b400] text-[#1a1a00] hover:bg-[#d4a200] h-8 px-2.5 text-xs font-semibold"><Printer className="w-3.5 h-3.5" /></Button>
            </div>
         </div>
       </header>
