@@ -219,11 +219,11 @@ def _draw_header_canvas(
 
     # ── Company name (centred) ────────────────────────────────────────────────
     canvas.setFillColor(WHITE)
-    canvas.setFont("Helvetica-Bold", 11)
+    canvas.setFont(FONT_BOLD, 11)
     canvas.drawCentredString(PAGE_W / 2, PAGE_H - 12 * mm, "NKANA WATER SUPPLY AND SANITATION COMPANY")
 
     canvas.setFillColor(_hex("C8DCF0"))
-    canvas.setFont("Helvetica", 7)
+    canvas.setFont(FONT_NORMAL, 7)
     canvas.drawCentredString(PAGE_W / 2, PAGE_H - 17 * mm,
                              "Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia")
     canvas.drawCentredString(PAGE_W / 2, PAGE_H - 21.5 * mm,
@@ -239,7 +239,7 @@ def _draw_header_canvas(
     canvas.setFillColor(OCEAN_BLUE)
     canvas.roundRect(badge_x, badge_y, badge_w, badge_h, 1.5 * mm, fill=1, stroke=0)
     canvas.setFillColor(WHITE)
-    canvas.setFont("Helvetica-Bold", 8)
+    canvas.setFont(FONT_BOLD, 8)
     canvas.drawCentredString(badge_x + badge_w / 2, badge_y + 3 * mm, badge_label)
 
     # ── Document title bar (ocean blue) below header ──────────────────────────
@@ -247,7 +247,7 @@ def _draw_header_canvas(
     canvas.setFillColor(OCEAN_BLUE)
     canvas.rect(0, title_y, PAGE_W, title_bar_h, fill=1, stroke=0)
     canvas.setFillColor(WHITE)
-    canvas.setFont("Helvetica-Bold", 10)
+    canvas.setFont(FONT_BOLD, 10)
     canvas.drawCentredString(PAGE_W / 2, title_y + 3.5 * mm, document_title)
 
     canvas.restoreState()
@@ -266,15 +266,15 @@ def _draw_footer_canvas(canvas, page_num: int, total_pages: int, left_label: str
     canvas.setLineWidth(0.5)
     canvas.line(MARGIN_L, rule_y, PAGE_W - MARGIN_R, rule_y)
 
-    canvas.setFont("Helvetica", 7)
+    canvas.setFont(FONT_NORMAL, 7)
     canvas.setFillColor(LIGHT_GREY)
     canvas.drawString(MARGIN_L, footer_y, left_label)
 
-    canvas.setFont("Helvetica-Oblique", 7)
+    canvas.setFont(FONT_OBLIQUE, 7)
     canvas.setFillColor(DARK_BLUE)
     canvas.drawCentredString(PAGE_W / 2, footer_y, "Bigger, Better, Smarter")
 
-    canvas.setFont("Helvetica", 7)
+    canvas.setFont(FONT_NORMAL, 7)
     canvas.setFillColor(LIGHT_GREY)
     canvas.drawRightString(PAGE_W - MARGIN_R, footer_y, f"Page {page_num} of {total_pages}")
     canvas.restoreState()
@@ -332,7 +332,7 @@ class SignatoryBlock(Flowable):
         c.saveState()
 
         # Section heading
-        c.setFont("Helvetica-Bold", 9)
+        c.setFont(FONT_BOLD, 9)
         c.setFillColor(DARK_BLUE)
         c.drawString(0, self.block_height - 6 * mm, "AUTHORISED SIGNATORIES")
 
@@ -368,19 +368,19 @@ class SignatoryBlock(Flowable):
             y_ptr -= 4 * mm
 
             # Name
-            c.setFont("Helvetica-Bold", 8)
+            c.setFont(FONT_BOLD, 8)
             c.setFillColor(_hex("1E1E1E"))
             c.drawString(col_x, y_ptr, name or "_________________________________")
             y_ptr -= 4 * mm
 
             # Title
-            c.setFont("Helvetica", 7.5)
+            c.setFont(FONT_NORMAL, 7.5)
             c.setFillColor(MID_GREY)
             c.drawString(col_x, y_ptr, title or "")
             y_ptr -= 4 * mm
 
             # Date
-            c.setFont("Helvetica-Oblique", 7)
+            c.setFont(FONT_OBLIQUE, 7)
             c.setFillColor(LIGHT_GREY)
             c.drawString(col_x, y_ptr, "Date: ___________________________")
 
@@ -471,9 +471,9 @@ def _build_meta_grid(fields: List[Tuple[str, str]]) -> Table:
         ("TEXTCOLOR",   (2, 0), (2, -1), WHITE),
         ("TEXTCOLOR",   (1, 0), (1, -1), BLACK),
         ("TEXTCOLOR",   (3, 0), (3, -1), BLACK),
-        ("FONTNAME",    (0, 0), (-1, -1), "Helvetica"),
-        ("FONTNAME",    (0, 0), (0, -1), "Helvetica-Bold"),
-        ("FONTNAME",    (2, 0), (2, -1), "Helvetica-Bold"),
+        ("FONTNAME",    (0, 0), (-1, -1), FONT_NORMAL),
+        ("FONTNAME",    (0, 0), (0, -1), FONT_BOLD),
+        ("FONTNAME",    (2, 0), (2, -1), FONT_BOLD),
         ("FONTSIZE",    (0, 0), (-1, -1), 7.5),
         ("TOPPADDING",  (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
