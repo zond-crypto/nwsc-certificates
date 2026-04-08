@@ -61,6 +61,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 from reportlab.platypus.flowables import Flowable
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 # ─── Page dimensions ──────────────────────────────────────────────────────────
 PAGE_W, PAGE_H = A4          # 595.27 x 841.89 pt  (ReportLab uses points)
@@ -88,30 +90,42 @@ LIGHT_GREY  = _hex("999999")
 # ─── Typography ───────────────────────────────────────────────────────────────
 STYLES = getSampleStyleSheet()
 
+try:
+    pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
+    pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', 'DejaVuSans-Bold.ttf'))
+    FONT_NORMAL = 'DejaVuSans'
+    FONT_BOLD = 'DejaVuSans-Bold'
+    FONT_OBLIQUE = 'DejaVuSans'
+except Exception:
+    FONT_NORMAL = 'Helvetica'
+    FONT_BOLD = 'Helvetica-Bold'
+    FONT_OBLIQUE = 'Helvetica-Oblique'
+
 def _style(name, **kw) -> ParagraphStyle:
     base = kw.pop("parent", "Normal")
     s = ParagraphStyle(name, parent=STYLES[base], **kw)
     return s
 
-
-BODY_STYLE       = _style("NWSCBody",       fontSize=7.5, leading=10, textColor=BLACK)
-BODY_BOLD        = _style("NWSCBodyBold",   fontSize=7.5, leading=10, textColor=BLACK, fontName="Helvetica-Bold")
-CELL_CENTRE      = _style("NWSCCentre",     fontSize=7.5, leading=10, alignment=TA_CENTER)
-CELL_RIGHT       = _style("NWSCRight",      fontSize=7.5, leading=10, alignment=TA_RIGHT)
-HEADER_STYLE     = _style("NWSCHeader",     fontSize=11,  leading=14, textColor=WHITE,  fontName="Helvetica-Bold", alignment=TA_CENTER)
-SUBHEADER_STYLE  = _style("NWSCSubheader",  fontSize=7,   leading=9,  textColor=_hex("C8DCF0"), alignment=TA_CENTER)
-SECTION_STYLE    = _style("NWSCSection",    fontSize=7.5, leading=10, textColor=WHITE,  fontName="Helvetica-Bold")
-TITLE_STYLE      = _style("NWSCTitle",      fontSize=10,  leading=13, textColor=WHITE,  fontName="Helvetica-Bold", alignment=TA_CENTER)
-META_LABEL       = _style("NWSCMetaLabel",  fontSize=7.5, leading=10, textColor=WHITE,  fontName="Helvetica-Bold")
-META_VAL         = _style("NWSCMetaVal",    fontSize=7.5, leading=10, textColor=BLACK)
-SIGNATORY_NAME   = _style("NWSCSignName",   fontSize=8,   leading=11, fontName="Helvetica-Bold", textColor=_hex("1E1E1E"))
-SIGNATORY_TITLE  = _style("NWSCSignTitle",  fontSize=7.5, leading=10, textColor=MID_GREY)
-SIGNATORY_DATE   = _style("NWSCSignDate",   fontSize=7,   leading=9,  textColor=LIGHT_GREY, fontName="Helvetica-Oblique")
-TOTALS_NORMAL    = _style("NWSCTotNormal",  fontSize=8.5, leading=12, textColor=MID_GREY)
-TOTALS_BOLD      = _style("NWSCTotBold",    fontSize=10,  leading=13, fontName="Helvetica-Bold", textColor=WHITE)
-BADGE_STYLE      = _style("NWSCBadge",      fontSize=8,   leading=10, fontName="Helvetica-Bold", textColor=WHITE, alignment=TA_CENTER)
-FOOTER_CENTRE    = _style("NWSCFooterC",    fontSize=7,   leading=9,  fontName="Helvetica-Oblique", textColor=DARK_BLUE, alignment=TA_CENTER)
-FOOTER_SIDE      = _style("NWSCFooterS",    fontSize=7,   leading=9,  textColor=LIGHT_GREY)
+BODY_STYLE       = _style("NWSCBody",       fontSize=7.5, leading=10, textColor=BLACK, fontName=FONT_NORMAL)
+BODY_BOLD        = _style("NWSCBodyBold",   fontSize=7.5, leading=10, textColor=BLACK, fontName=FONT_BOLD)
+CELL_CENTRE      = _style("NWSCCentre",     fontSize=7.5, leading=10, alignment=TA_CENTER, fontName=FONT_NORMAL)
+CELL_RIGHT       = _style("NWSCRight",      fontSize=7.5, leading=10, alignment=TA_RIGHT, fontName=FONT_NORMAL)
+HEADER_STYLE     = _style("NWSCHeader",     fontSize=11,  leading=14, textColor=WHITE,  fontName=FONT_BOLD, alignment=TA_CENTER)
+SUBHEADER_STYLE  = _style("NWSCSubheader",  fontSize=7,   leading=9,  textColor=_hex("C8DCF0"), alignment=TA_CENTER, fontName=FONT_NORMAL)
+SECTION_STYLE    = _style("NWSCSection",    fontSize=7.5, leading=10, textColor=WHITE,  fontName=FONT_BOLD)
+TITLE_STYLE      = _style("NWSCTitle",      fontSize=10,  leading=13, textColor=WHITE,  fontName=FONT_BOLD, alignment=TA_CENTER)
+META_LABEL       = _style("NWSCMetaLabel",  fontSize=7.5, leading=10, textColor=WHITE,  fontName=FONT_BOLD)
+META_VAL         = _style("NWSCMetaVal",    fontSize=7.5, leading=10, textColor=BLACK, fontName=FONT_NORMAL)
+SIGNATORY_NAME   = _style("NWSCSignName",   fontSize=8,   leading=11, fontName=FONT_BOLD, textColor=_hex("1E1E1E"))
+SIGNATORY_TITLE  = _style("NWSCSignTitle",  fontSize=7.5, leading=10, textColor=MID_GREY, fontName=FONT_NORMAL)
+SIGNATORY_DATE   = _style("NWSCSignDate",   fontSize=7,   leading=9,  textColor=LIGHT_GREY, fontName=FONT_OBLIQUE)
+TOTALS_NORMAL    = _style("NWSCTotNormal",  fontSize=8.5, leading=12, textColor=MID_GREY, fontName=FONT_NORMAL)
+TOTALS_BOLD      = _style("NWSCTotBold",    fontSize=10,  leading=13, fontName=FONT_BOLD, textColor=WHITE)
+BADGE_STYLE      = _style("NWSCBadge",      fontSize=8,   leading=10, fontName=FONT_BOLD, textColor=WHITE, alignment=TA_CENTER)
+FOOTER_CENTRE    = _style("NWSCFooterC",    fontSize=7,   leading=9,  fontName=FONT_OBLIQUE, textColor=DARK_BLUE, alignment=TA_CENTER)
+FOOTER_SIDE      = _style("NWSCFooterS",    fontSize=7,   leading=9,  textColor=LIGHT_GREY, fontName=FONT_NORMAL)
+SAMPLE_STYLE     = _style("NWSCSample",     fontSize=7.5, leading=10, alignment=TA_CENTER, fontName=FONT_BOLD, wordWrap=None, allowWidows=0, allowOrphans=0)
+UNIT_STYLE       = _style("NWSCUnit",       fontSize=7,   leading=9,  alignment=TA_CENTER, fontName=FONT_NORMAL, wordWrap=None)
 
 MAX_SAMPLE_COLS = 6   # sample columns per A4 page
 
@@ -158,12 +172,9 @@ def _place_watermark(canvas, logo_reader: Optional[ImageReader]) -> None:
     """Draw the semi-transparent NWSC logo watermark behind all page content."""
     canvas.saveState()
     canvas.setFillAlpha(0.07)
-    size = 160 * mm
-    x = (PAGE_W - size) / 2
-    y = (PAGE_H - size) / 2
-    if logo_reader:
-        canvas.drawImage(logo_reader, x, y, width=size, height=size, mask="auto")
-    else:
+    try:
+        canvas.drawImage("Logo.png", x=(PAGE_W - 180) / 2, y=(PAGE_H - 180) / 2, width=180, height=180, mask="auto")
+    except Exception:
         # Fallback: large diagonal text
         canvas.setFont("Helvetica-Bold", 90)
         canvas.setFillColor(colors.Color(0.7, 0.7, 0.7))
@@ -199,10 +210,12 @@ def _draw_header_canvas(
     # ── Logo (top-left white-circle background + image) ───────────────────────
     logo_x = MARGIN_L
     logo_y = PAGE_H - header_h + (header_h - 20 * mm) / 2  # vertically centred
-    if logo_reader:
+    try:
         canvas.setFillColor(WHITE)
         canvas.roundRect(logo_x - 1 * mm, logo_y - 1 * mm, 22 * mm, 22 * mm, 2 * mm, fill=1, stroke=0)
-        canvas.drawImage(logo_reader, logo_x, logo_y, width=20 * mm, height=20 * mm, mask="auto")
+        canvas.drawImage("Logo.png", logo_x, logo_y, width=20 * mm, height=20 * mm, mask="auto")
+    except Exception:
+        pass
 
     # ── Company name (centred) ────────────────────────────────────────────────
     canvas.setFillColor(WHITE)
@@ -498,11 +511,11 @@ def _build_coa_table(
     # ── Column widths (points) ────────────────────────────────────────────────
     col_no_w     = 8  * mm
     col_param_w  = 48 * mm
-    col_unit_w   = 18 * mm
+    col_unit_w   = 52        # At least 52pt for Unit
     col_limit_w  = 26 * mm
     fixed_w      = col_no_w + col_param_w + col_unit_w + col_limit_w
     remaining_w  = usable_w - fixed_w
-    sample_col_w = remaining_w / n_samples if n_samples else remaining_w
+    sample_col_w = max(55, remaining_w / n_samples) if n_samples else remaining_w
     col_widths   = [col_no_w, col_param_w, col_unit_w, col_limit_w] + [sample_col_w] * n_samples
 
     # ── Header row ────────────────────────────────────────────────────────────
@@ -512,49 +525,55 @@ def _build_coa_table(
         Paragraph("Parameter",  BODY_BOLD),
         Paragraph("Unit",       CELL_CENTRE),
         Paragraph(limit_header, CELL_CENTRE),
-    ] + [Paragraph(lbl, CELL_CENTRE) for lbl in sample_labels]
+    ] + [Paragraph(lbl, SAMPLE_STYLE) for lbl in sample_labels]
 
     # ── Body rows ─────────────────────────────────────────────────────────────
     body_rows   = []
     section_row_idxs: List[int] = []   # track which rows are section headers
     param_counter = 0
 
+    current_section = None
     for row in all_rows:
-        if row.get("section"):
-            # Wide section-header row
-            section_row_idxs.append(len(body_rows) + 1)   # +1 for the header row
-            body_rows.append(
-                [Paragraph(row["section"], SECTION_STYLE)] + [""] * (total_cols - 1)
-            )
-        else:
-            param_counter += 1
-            result_cells = []
-            for si in range(n_samples):
-                abs_idx = global_start_idx + si
-                results = row.get("results", [])
-                val = results[abs_idx] if abs_idx < len(results) else "—"
-                result_cells.append(Paragraph(str(val) if val is not None else "—", CELL_CENTRE))
-            body_rows.append([
-                Paragraph(str(param_counter), CELL_CENTRE),
-                Paragraph(row.get("name", ""),  BODY_STYLE),
-                Paragraph(row.get("unit", ""),  CELL_CENTRE),
-                Paragraph(row.get("limit", ""), CELL_CENTRE),
-                *result_cells,
-            ])
+        sec = row.get("section")
+        name = row.get("name")
+        
+        if sec and sec != current_section:
+            section_row_idxs.append(len(body_rows) + 1)
+            body_rows.append([Paragraph(sec, SECTION_STYLE)] + [""] * (total_cols - 1))
+            current_section = sec
+            
+        if not name:
+            continue
+
+        param_counter += 1
+        result_cells = []
+        for si in range(n_samples):
+            abs_idx = global_start_idx + si
+            results = row.get("results", [])
+            val = results[abs_idx] if abs_idx < len(results) else "—"
+            result_cells.append(Paragraph(str(val) if val is not None else "—", CELL_CENTRE))
+            
+        body_rows.append([
+            Paragraph(str(param_counter), CELL_CENTRE),
+            Paragraph(name,  BODY_STYLE),
+            Paragraph(row.get("unit", ""),  UNIT_STYLE),
+            Paragraph(row.get("limit", ""), CELL_CENTRE),
+            *result_cells,
+        ])
 
     all_table_rows = [header_row] + body_rows
 
     # ── TableStyle ────────────────────────────────────────────────────────────
     style_cmds = [
         # Header row
-        ("BACKGROUND",    (0, 0), (-1, 0),  DARK_BLUE),
+        ("BACKGROUND",    (0, 0), (-1, 0),  OCEAN_BLUE),
         ("TEXTCOLOR",     (0, 0), (-1, 0),  WHITE),
-        ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
+        ("FONTNAME",      (0, 0), (-1, 0),  FONT_BOLD),
         ("FONTSIZE",      (0, 0), (-1, 0),  7.5),
         ("ALIGN",         (0, 0), (-1, 0),  "CENTER"),
         # All cells
         ("FONTSIZE",      (0, 1), (-1, -1), 7.5),
-        ("FONTNAME",      (0, 1), (-1, -1), "Helvetica"),
+        ("FONTNAME",      (0, 1), (-1, -1), FONT_NORMAL),
         ("TOPPADDING",    (0, 0), (-1, -1), 2.5),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
         ("LEFTPADDING",   (0, 0), (-1, -1), 3),
@@ -632,15 +651,21 @@ def generate_coa_pdf(cert: Dict[str, Any], output_path: Optional[str] = None) ->
             except Exception:
                 pass
 
-    # ── Sample groups (max MAX_SAMPLE_COLS per page group) ───────────────────
+    # ── Sample groups (dynamic based on 55pt minimum) ───────────────────────────
     samples   = cert.get("samples", []) or ["Sample 1"]
     all_rows  = cert.get("tableData", [])
     n_samples = len(samples)
 
-    # Chunk samples into groups of MAX_SAMPLE_COLS
+    usable_w = PAGE_W - MARGIN_L - MARGIN_R
+    fixed_w = 8 * mm + 48 * mm + 52 + 26 * mm
+    available = usable_w - fixed_w
+    max_samples_per_page = int(max(1, available / 55))
+    max_samples_per_page = max(1, min(8, max_samples_per_page))
+
+    # Chunk samples into groups of max_samples_per_page
     groups: List[List[str]] = []
-    for i in range(0, max(n_samples, 1), MAX_SAMPLE_COLS):
-        groups.append(samples[i: i + MAX_SAMPLE_COLS])
+    for i in range(0, max(n_samples, 1), max_samples_per_page):
+        groups.append(samples[i: i + max_samples_per_page])
 
     # ── Limit header label ────────────────────────────────────────────────────
     sample_type = cert.get("sampleType", "")
@@ -678,26 +703,27 @@ def generate_coa_pdf(cert: Dict[str, Any], output_path: Optional[str] = None) ->
         story.append(_build_meta_grid(meta_fields))
         story.append(Spacer(1, 3 * mm))
 
-        # Sample range banner (only when multiple groups)
+        # Sample range banner (always shown)
+        banner_text = (
+            f"Samples {global_start + 1}–{global_start + len(sample_group)} "
+            f"of {n_samples}"
+        )
         if len(groups) > 1:
-            banner_text = (
-                f"Samples {global_start + 1}–{global_start + len(sample_group)} "
-                f"of {n_samples}  [Page group {group_idx + 1} of {len(groups)}]"
-            )
-            banner_row = [Paragraph(banner_text, SECTION_STYLE), "", "", ""]
-            banner_w   = PAGE_W - MARGIN_L - MARGIN_R
-            banner_tbl = Table([[Paragraph(banner_text, SECTION_STYLE)]], colWidths=[banner_w])
-            banner_tbl.setStyle(TableStyle([
-                ("BACKGROUND",    (0, 0), (-1, -1), OCEAN_BLUE),
-                ("TEXTCOLOR",     (0, 0), (-1, -1), WHITE),
-                ("FONTNAME",      (0, 0), (-1, -1), "Helvetica-Bold"),
-                ("FONTSIZE",      (0, 0), (-1, -1), 7),
-                ("TOPPADDING",    (0, 0), (-1, -1), 3),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-                ("LEFTPADDING",   (0, 0), (-1, -1), 5),
-            ]))
-            story.append(banner_tbl)
-            story.append(Spacer(1, 2 * mm))
+            banner_text += f"  [Page group {group_idx + 1} of {len(groups)}]"
+        banner_row = [Paragraph(banner_text, SECTION_STYLE), "", "", ""]
+        banner_w   = PAGE_W - MARGIN_L - MARGIN_R
+        banner_tbl = Table([[Paragraph(banner_text, SECTION_STYLE)]], colWidths=[banner_w])
+        banner_tbl.setStyle(TableStyle([
+            ("BACKGROUND",    (0, 0), (-1, -1), OCEAN_BLUE),
+            ("TEXTCOLOR",     (0, 0), (-1, -1), WHITE),
+            ("FONTNAME",      (0, 0), (-1, -1), FONT_BOLD),
+            ("FONTSIZE",      (0, 0), (-1, -1), 7),
+            ("TOPPADDING",    (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING",   (0, 0), (-1, -1), 5),
+        ]))
+        story.append(banner_tbl)
+        story.append(Spacer(1, 2 * mm))
 
         # Parameters table for this sample column group
         story.append(
@@ -832,9 +858,12 @@ def generate_quotation_pdf(quot: Dict[str, Any], output_path: Optional[str] = No
     ]
     items_data = [items_header]
     for idx, item in enumerate(quot.get("items", [])):
+        param_name = item.get("parameterName", "")
+        if param_name.endswith(" Test"):
+            param_name = param_name[:-5]
         items_data.append([
             Paragraph(str(idx + 1),                        CELL_CENTRE),
-            Paragraph(item.get("parameterName", ""),       BODY_STYLE),
+            Paragraph(param_name,                          BODY_STYLE),
             Paragraph(str(item.get("quantity", 1)),        CELL_CENTRE),
             Paragraph(_kwacha(item.get("unitPrice", 0)),   CELL_RIGHT),
             Paragraph(_kwacha(item.get("tax", 0)),         CELL_RIGHT),
@@ -846,12 +875,12 @@ def generate_quotation_pdf(quot: Dict[str, Any], output_path: Optional[str] = No
         # Header
         ("BACKGROUND",    (0, 0), (-1, 0),  OCEAN_BLUE),
         ("TEXTCOLOR",     (0, 0), (-1, 0),  WHITE),
-        ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
+        ("FONTNAME",      (0, 0), (-1, 0),  FONT_BOLD),
         ("FONTSIZE",      (0, 0), (-1, 0),  8),
         ("ALIGN",         (0, 0), (-1, 0),  "CENTER"),
         # Body
         ("FONTSIZE",      (0, 1), (-1, -1), 8),
-        ("FONTNAME",      (0, 1), (-1, -1), "Helvetica"),
+        ("FONTNAME",      (0, 1), (-1, -1), FONT_NORMAL),
         ("TOPPADDING",    (0, 0), (-1, -1), 2.5),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2.5),
         ("LEFTPADDING",   (0, 0), (-1, -1), 3),
@@ -882,13 +911,14 @@ def generate_quotation_pdf(quot: Dict[str, Any], output_path: Optional[str] = No
     totals_tbl.setStyle(TableStyle([
         ("BACKGROUND",    (0, 2), (-1, 2),  DARK_BLUE),
         ("TEXTCOLOR",     (0, 2), (-1, 2),  WHITE),
-        ("FONTNAME",      (0, 2), (-1, 2),  "Helvetica-Bold"),
+        ("FONTNAME",      (0, 2), (-1, 2),  FONT_BOLD),
         ("FONTSIZE",      (0, 2), (-1, 2),  10),
         ("TOPPADDING",    (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ("LEFTPADDING",   (0, 0), (-1, -1), 5),
         ("RIGHTPADDING",  (0, 0), (-1, -1), 5),
         ("ALIGN",         (1, 0), (1, -1),  "RIGHT"),
+        ("FONTNAME",      (0, 0), (-1, 1),  FONT_NORMAL),
         ("FONTSIZE",      (0, 0), (-1, 1),  8.5),
         ("BOX",           (0, 0), (-1, -1), 0.5, _hex("AAAAAA")),
         ("INNERGRID",     (0, 0), (-1, -1), 0.25, _hex("DDDDDD")),
@@ -1043,8 +1073,9 @@ if __name__ == "__main__":
             {"name": "Sulphate (SO\u2084\u00b2\u207b)", "unit": "mg/L", "limit": "\u2264 250", "results": ["45"]},
             {"name": "Conductivity", "unit": "\u00b5S/cm", "limit": "\u2264 1000", "results": ["320"]},
             {"section": "Microbiological Parameters"},
-            {"name": "E. coli", "unit": "CFU/100mL", "limit": "0", "results": ["0"]},
-            {"name": "Total Coliforms", "unit": "CFU/100mL", "limit": "0", "results": ["0"]},
+            {"name": "Total Coliforms (T/Coli)", "unit": "CFU/100mL", "limit": "0", "results": ["0"]},
+            {"name": "Faecal Coliforms (F/Coli)", "unit": "CFU/100mL", "limit": "0", "results": ["0"]},
+            {"name": "HPC (22\u00B0C)",           "unit": "CFU/mL",    "limit": "\u2264 100", "results": ["42"]},
         ],
     }
 
