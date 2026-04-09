@@ -90,9 +90,30 @@ LIGHT_GREY  = _hex("999999")
 # ─── Typography ───────────────────────────────────────────────────────────────
 STYLES = getSampleStyleSheet()
 
+import functools
+
+_fonts_registered = False
+
+def ensure_fonts():
+    global _fonts_registered
+    if _fonts_registered:
+        return
+    try:
+        pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
+        pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', 'DejaVuSans-Bold.ttf'))
+    except Exception:
+        pass
+    _fonts_registered = True
+
+@functools.lru_cache(maxsize=1)
+def get_logo_image(size_w=60, size_h=60):
+    try:
+        return Image("Logo.png", width=size_w, height=size_h)
+    except Exception:
+        return None
+
 try:
-    pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
-    pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', 'DejaVuSans-Bold.ttf'))
+    ensure_fonts()
     FONT_NORMAL = 'DejaVuSans'
     FONT_BOLD = 'DejaVuSans-Bold'
     FONT_OBLIQUE = 'DejaVuSans'
@@ -744,13 +765,25 @@ def generate_coa_pdf(cert: Dict[str, Any], output_path: Optional[str] = None) ->
     )
 
     # ── Build document ────────────────────────────────────────────────────────
-    _build_document(
-        output_path, story, logo_reader,
-        badge_label="CERTIFIED",
-        document_title="WATER ANALYSIS CERTIFICATE",
-        left_footer_label="NWSC — CERTIFIED",
-    )
-    return os.path.abspath(output_path)
+    if output_path:
+        _build_document(
+            output_path, story, logo_reader,
+            badge_label="CERTIFIED",
+            document_title="WATER ANALYSIS CERTIFICATE",
+            left_footer_label="NWSC — CERTIFIED",
+        )
+        return os.path.abspath(output_path)
+    else:
+        # Return as bytes if no path provided
+        buffer = io.BytesIO()
+        _build_document(
+            buffer, story, logo_reader,
+            badge_label="CERTIFIED",
+            document_title="WATER ANALYSIS CERTIFICATE",
+            left_footer_label="NWSC — CERTIFIED",
+        )
+        buffer.seek(0)
+        return buffer.read()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -952,13 +985,24 @@ def generate_quotation_pdf(quot: Dict[str, Any], output_path: Optional[str] = No
     )
 
     # ── Build document ────────────────────────────────────────────────────────
-    _build_document(
-        output_path, story, logo_reader,
-        badge_label="OFFICIAL",
-        document_title="SERVICE QUOTATION",
-        left_footer_label="NWSC — OFFICIAL",
-    )
-    return os.path.abspath(output_path)
+    if output_path:
+        _build_document(
+            output_path, story, logo_reader,
+            badge_label="OFFICIAL",
+            document_title="SERVICE QUOTATION",
+            left_footer_label="NWSC — OFFICIAL",
+        )
+        return os.path.abspath(output_path)
+    else:
+        buffer = io.BytesIO()
+        _build_document(
+            buffer, story, logo_reader,
+            badge_label="OFFICIAL",
+            document_title="SERVICE QUOTATION",
+            left_footer_label="NWSC — OFFICIAL",
+        )
+        buffer.seek(0)
+        return buffer.read()
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NWSC Lab — Offline</title>
+  <meta name="theme-color" content="#0077B6">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; display: flex; flex-direction: column;
+           align-items: center; justify-content: center; min-height: 100vh;
+           background: #f0f8ff; color: #1a1a2e; padding: 24px; text-align: center; }
+    img  { width: 96px; height: 96px; margin-bottom: 24px; border-radius: 50%; }
+    h1   { font-size: 22px; color: #0077B6; margin-bottom: 8px; }
+    p    { font-size: 15px; color: #555; max-width: 320px; line-height: 1.6; margin-bottom: 24px; }
+    .badge { background: #0077B6; color: #fff; padding: 8px 20px; border-radius: 8px;
+             font-size: 14px; text-decoration: none; display: inline-block; }
+    .status { font-size: 12px; color: #888; margin-top: 16px; }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+           background: #e74c3c; margin-right: 6px; }
+    .dot.online { background: #27ae60; }
+  </style>
+</head>
+<body>
+  <img src="/static/icons/icon-192.png" alt="NWSC Logo">
+  <h1>You are offline</h1>
+  <p>NWSC Laboratory System is not reachable right now. Any PDFs you 
+     previously generated are saved and available below.</p>
+  <a href="/" class="badge" onclick="location.reload()">Try Again</a>
+  <p class="status"><span class="dot" id="dot"></span><span id="status-text">Checking connection...</span></p>
+  <script>
+    function updateStatus() {
+      const dot = document.getElementById('dot');
+      const txt = document.getElementById('status-text');
+      if (navigator.onLine) {
+        dot.className = 'dot online';
+        txt.textContent = 'Back online — click Try Again';
+      } else {
+        dot.className = 'dot';
+        txt.textContent = 'No internet connection';
+      }
+    }
+    updateStatus();
+    window.addEventListener('online',  updateStatus);
+    window.addEventListener('offline', updateStatus);
+    window.addEventListener('online', () => setTimeout(() => location.href = '/', 1000));
+  </script>
+</body>
+</html>

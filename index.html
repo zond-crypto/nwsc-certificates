@@ -5,11 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
     <meta name="theme-color" content="#003d7a" />
     <meta name="description" content="NKANA Water Supply and Sanitation Company — Water Analysis Certificate System" />
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#0077B6">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="NWSC Lab">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
     <title>NWSC — Water Analysis Certificate</title>
+    <script src="/static/js/pwa.js" defer></script>
+    <script>
+      // ── 5D. Frontend performance 
+      function debounce(fn, ms = 200) {
+        let t;
+        return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+      }
+      
+      window.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.price-input, .qty-input').forEach(el => {
+          el.addEventListener('input', debounce(() => {
+            // Trigger recalculation logic if exists globally
+            if (window.recalculateTotals) window.recalculateTotals();
+          }, 250));
+        });
+      });
+
+      const link = document.createElement('link');
+      link.rel = 'preconnect';
+      link.href = window.location.origin;
+      document.head.appendChild(link);
+    </script>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <!-- 1. Your app's main JS (defer = non-blocking) -->
+    <script type="module" src="/src/main.tsx" defer></script>
+    <!-- 2. PWA install + offline handler (defer) -->
+    <script src="/static/js/pwa.js" defer></script>
   </body>
 </html>
 
