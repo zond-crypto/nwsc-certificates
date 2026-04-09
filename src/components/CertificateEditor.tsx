@@ -21,13 +21,7 @@ interface Props {
   signatures: Signature[];
 }
 
-interface Props {
-  certificate: Certificate;
-  setCertificate: React.Dispatch<React.SetStateAction<Certificate>>;
-  onSave: () => void;
-  regLimits: RegulatoryLimit[];
-  signatures: Signature[];
-}
+
 
 export function CertificateEditor({ certificate, setCertificate, onSave, regLimits, signatures }: Props) {
   const [rowToDelete, setRowToDelete] = useState<number | null>(null);
@@ -167,7 +161,16 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
   const addRow = useCallback(() => {
     setCertificate(prev => ({
       ...prev,
-      tableData: [...prev.tableData, { ...DEFAULT_PARAMS[0], id: `param-${Date.now()}`, results: new Array(prev.samples.length).fill('') }]
+      tableData: [
+        ...prev.tableData,
+        { 
+          id: `param-${Date.now()}`, 
+          name: '', 
+          unit: '', 
+          limit: '', 
+          results: new Array(prev.samples.length).fill('') 
+        }
+      ]
     }));
   }, [setCertificate]);
 
@@ -192,7 +195,10 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
   const addCategory = useCallback((categoryName: string) => {
     setCertificate(prev => ({
       ...prev,
-      tableData: [...prev.tableData, { id: `sec-${Date.now()}`, section: categoryName, results: [] }]
+      tableData: [
+        ...prev.tableData, 
+        { id: `sec-${Date.now()}`, section: categoryName, results: [] }
+      ]
     }));
     setShowCategoryMenu(false);
   }, [setCertificate]);
@@ -490,7 +496,7 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
                 <LayoutGrid className="w-3 h-3 mr-1" /> Add Section
               </Button>
               {showCategoryMenu && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-48">
+                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-48">
                   <div className="p-2">
                     <button onClick={() => addCategory('Physical Parameters')} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">Physical Parameters</button>
                     <button onClick={() => addCategory('Chemical Parameters')} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">Chemical Parameters</button>
