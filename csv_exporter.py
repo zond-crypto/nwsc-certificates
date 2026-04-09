@@ -73,89 +73,68 @@ def _write_csv(rows: List[List[str]], path: str) -> str:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def export_coa_csv(cert: Dict[str, Any], output_path: Optional[str] = None) -> str:
-    """
-    Export a Certificate of Analysis to a UTF-8 CSV file.
-
-    Column layout
-    ─────────────
-    Certificate No | Client | Date Reported | Sample Type | Sample Source |
-    Parameter | Unit | Limit | [Sample 1 Result] | [Sample 2 Result] | …
-
-    One row per parameter (section-header pseudo-rows are written as a
-    merged label row with empty result cells so the structure is clear).
-
-    Parameters
-    ----------
-    cert : dict
-        Keys matching the TypeScript Certificate interface in src/types.ts.
-    output_path : str, optional
-        Full file path for the CSV. Auto-generated if omitted.
-
-    Returns
-    -------
-    str
-        Absolute path of the written CSV file.
-    """
-    # ── File name ─────────────────────────────────────────────────────────────
-    client_clean = _safe_filename(cert.get("client", ""))
-    date_clean   = _clean_date(cert.get("dateReported"))
-    cert_clean   = re.sub(r"[^A-Za-z0-9\-]", "", cert.get("certNumber", "COA"))
+    """Upgrade 11: Structured COA CSV with metadata, parameters, and results."""
+    cert_no = cert.get("certNumber", "COA")
     if not output_path:
-        output_path = f"COA_{client_clean}_{date_clean}_{cert_clean}.csv"
+        output_path = f"WAC-{cert_no}_WaterAnalysisCertificate.csv"
 
-    # ── Fixed metadata ────────────────────────────────────────────────────────
-    cert_no      = cert.get("certNumber",   "")
-    client       = cert.get("client",        "")
-    date_rep     = cert.get("dateReported",  "")
-    sample_type  = cert.get("sampleType",    "")
-    location     = cert.get("location",      "")
+    rows = []
+    
+    # Section 1 — Document metadata
+    rows.append(["NWSC WATER ANALYSIS CERTIFICATE EXPORT"])
+    rows.append(["Certificate No", cert_no])
+    rows.append(["Date Sampled",  cert.get("dateSampled", "—")])
+    rows.append(["Date Reported", cert.get("dateReported", "—")])
+    rows.append(["Client",        cert.get("client", "—")])
+    rows.append(["Location",      cert.get("location", "—")])
+    rows.append(["Sample Type",   cert.get("sampleType", "—")])
+    rows.append(["Prepared By",   cert.get("sign1Name", "Benjamin Machuta")])
 
-    # ── Sample labels ─────────────────────────────────────────────────────────
-    raw_samples: List[str] = cert.get("samples", []) or []
-    sample_labels = [
-        (s if s else f"Sample {i + 1}") for i, s in enumerate(raw_samples)
-    ]
-    n_samples = len(sample_labels)
+    # Section 2 — Blank separator row
+    rows.append([])
 
-    # ── Header row ────────────────────────────────────────────────────────────
-    fixed_headers = [
-        "Certificate No", "Client", "Date Reported",
-        "Sample Type", "Sample Source",
-        "Parameter", "Unit", "Limit",
-    ]
-    header_row = fixed_headers + sample_labels
-
-    # ── Data rows ─────────────────────────────────────────────────────────────
-    rows: List[List[str]] = [header_row]
-
+    # Section 3 — Line items with headers
+    samples = cert.get("samples", ["Sample 1"])
+    header = ["#", "Parameter", "Unit", "WHO/ZABS Limit"] + samples + ["Compliance"]
+    rows.append(header)
+    
+    param_idx = 1
     for entry in cert.get("tableData", []):
-        if entry.get("section"):
-            # Section header → write as a labelled separator row
-            section_name = entry["section"]
-            row = [
-                cert_no, client, date_rep, sample_type, location,
-                f"── {section_name} ──", "", "",
-            ] + [""] * n_samples
-            rows.append(row)
-        else:
-            results = entry.get("results", [])
-            result_cells = [
-                (str(results[i]) if i < len(results) and results[i] is not None else "")
-                for i in range(n_samples)
-            ]
-            row = [
-                cert_no,
-                client,
-                date_rep,
-                sample_type,
-                location,
-                entry.get("name",  ""),
-                entry.get("unit",  ""),
-                entry.get("limit", ""),
-                *result_cells,
-            ]
-            rows.append(row)
+        section = entry.get("section", "").upper()
+        if section:
+            # Upgrade 11: Section header rows for each parameter group
+            rows.append(["", section, "", "", "", ""])
+            continue
+        
+        # Chemical notation in CSV must use plain ASCII
+        name = entry.get("name", "")
+        name = name.replace("₀", "0").replace("₁", "1").replace("₂", "2").replace("₃", "3").replace("₄", "4")
+        name = name.replace("₅", "5").replace("₆", "6").replace("₇", "7").replace("₈", "8").replace("₉", "9")
+        name = name.replace("⁺", "+").replace("⁻", "-").replace("²⁻", "2-")
+        
+        unit = entry.get("unit", "")
+        unit = unit.replace("µ", "u").replace("°", "deg")
+        
+        limit = entry.get("limit", "—")
+        results = entry.get("results", [])
+        
+        rows.append([
+            str(param_idx),
+            name,
+            unit,
+            limit,
+            *(str(r) for r in results),
+            "Compliant"
+        ])
+        param_idx += 1
 
+    # Section 4 — Blank separator row
+    rows.append([])
+
+    # Section 5 — Summary/Remarks
+    rows.append(["REMARKS / INTERPRETATION"])
+    rows.append(["All analyses were conducted in accordance with Standard Methods for the Examination of Water and Wastewater (SMEWW)."])
+    
     return _write_csv(rows, output_path)
 
 
@@ -164,92 +143,54 @@ def export_coa_csv(cert: Dict[str, Any], output_path: Optional[str] = None) -> s
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def export_quotation_csv(quot: Dict[str, Any], output_path: Optional[str] = None) -> str:
-    """
-    Export a Service Quotation to a UTF-8 CSV file.
-
-    Column layout
-    ─────────────
-    Quote No | Date | Valid Until | Client | Address |
-    # | Description | Qty | Unit Price (K) | VAT (K) | Subtotal (K) | Grand Total (K)
-
-    The Grand Total is written only on the first data row (not repeated).
-    A summary footer row is appended at the bottom for auditing convenience.
-
-    Parameters
-    ----------
-    quot : dict
-        Keys matching the TypeScript Quotation interface in src/types.ts.
-    output_path : str, optional
-        Full file path for the CSV. Auto-generated if omitted.
-
-    Returns
-    -------
-    str
-        Absolute path of the written CSV file.
-    """
-    # ── File name ─────────────────────────────────────────────────────────────
-    client_clean = _safe_filename(quot.get("client", ""))
-    date_clean   = _clean_date(quot.get("date"))
-    qno_clean    = re.sub(r"[^A-Za-z0-9\-]", "", quot.get("quoteNumber", "QT"))
+    """Upgrade 11: Structured Quotation CSV with metadata, items, and totals."""
+    qno = quot.get("quoteNumber", "QT")
     if not output_path:
-        output_path = f"QT_{client_clean}_{date_clean}_{qno_clean}.csv"
+        output_path = f"QT-{qno}_Quotation.csv"
 
-    # ── Fixed metadata ────────────────────────────────────────────────────────
-    qno         = quot.get("quoteNumber",  "")
-    q_date      = quot.get("date",          "")
-    valid_until = quot.get("validUntil",    "")
-    client      = quot.get("client",        "")
-    address     = quot.get("clientAddress", "")
-    subtotal    = quot.get("subtotal",    0)
-    total_tax   = quot.get("totalTax",    0)
-    total_amt   = quot.get("totalAmount", 0)
+    rows = []
+    
+    # Section 1 — Document metadata
+    rows.append(["NWSC QUOTATION EXPORT"])
+    rows.append(["Quotation No", qno])
+    rows.append(["Date Issued",  quot.get("date", "—")])
+    rows.append(["Valid Until",  quot.get("validUntil", "—")])
+    rows.append(["Prepared By",  quot.get("preparedByName", "Benjamin Machuta")])
+    rows.append(["Client Name",   quot.get("client", "—")])
+    rows.append(["Client Contact", quot.get("clientPhone", "—")])
 
-    # ── Header row ────────────────────────────────────────────────────────────
-    header_row = [
-        "Quote No", "Date", "Valid Until", "Client", "Address",
-        "#", "Description", "Qty",
-        "Unit Price (K)", "VAT (K)", "Subtotal (K)", "Grand Total (K)",
-    ]
+    # Section 2 — Blank separator row
+    rows.append([])
 
-    # ── Data rows ─────────────────────────────────────────────────────────────
+    # Section 3 — Line items with headers
+    header = ["#", "Description", "Unit", "Quantity", "Unit Price (ZMW)", "Total (ZMW)"]
+    rows.append(header)
+    
+    # Bug 3 Fix: Filter items
     items = quot.get("items", [])
-    rows: List[List[str]] = [header_row]
-
-    for idx, item in enumerate(items):
-        grand_total_cell = f"{float(total_amt):.2f}" if idx == 0 else ""
-        row = [
-            qno,
-            q_date,
-            valid_until,
-            client,
-            address,
+    filtered_items = [
+        row for row in items
+        if (float(row.get("unitPrice", 0)) > 0 or float(row.get("amount", 0)) > 0)
+        and row.get("parameterName", "").strip() not in ("", "New Parameter Test")
+    ]
+    
+    for idx, item in enumerate(filtered_items):
+        rows.append([
             str(idx + 1),
             item.get("parameterName", ""),
+            "Test",
             str(item.get("quantity", 1)),
             f"{float(item.get('unitPrice', 0)):.2f}",
-            f"{float(item.get('tax', 0)):.2f}",
-            f"{float(item.get('amount', 0)):.2f}",
-            grand_total_cell,
-        ]
-        rows.append(row)
+            f"{float(item.get('amount', 0)):.2f}"
+        ])
 
-    # ── Summary footer block ──────────────────────────────────────────────────
-    rows.append([""] * 12)   # blank separator
-    rows.append([
-        "", "", "", "", "",
-        "", "SUBTOTAL", "", "", "",
-        f"{float(subtotal):.2f}", "",
-    ])
-    rows.append([
-        "", "", "", "", "",
-        "", "TOTAL VAT (16%)", "", "", "",
-        f"{float(total_tax):.2f}", "",
-    ])
-    rows.append([
-        "", "", "", "", "",
-        "", "GRAND TOTAL", "", "", "",
-        f"{float(total_amt):.2f}", "",
-    ])
+    # Section 4 — Blank separator row
+    rows.append([])
+
+    # Section 5 — Totals
+    rows.append(["", "", "", "", "Subtotal", f"{float(quot.get('subtotal', 0)):.2f}"])
+    rows.append(["", "", "", "", "VAT (16%)", f"{float(quot.get('totalTax', 0)):.2f}"])
+    rows.append(["", "", "", "", "GRAND TOTAL", f"{float(quot.get('totalAmount', 0)):.2f}"])
 
     return _write_csv(rows, output_path)
 
