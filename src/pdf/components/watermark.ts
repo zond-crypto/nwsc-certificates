@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import { A4_W, A4_H } from '../constants';
 
-export async function drawSharedWatermark(doc: jsPDF, logoDataUrl: string | null): Promise<void> {
+export function drawSharedWatermark(doc: jsPDF, logoDataUrl: string | null): void {
   doc.saveGraphicsState();
   (doc as any).setGState(new (doc as any).GState({ opacity: 0.07 }));
   

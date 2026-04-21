@@ -1,65 +1,77 @@
-import React, { useState } from 'react';
+import React, { type ReactNode } from 'react';
 import { Certificate, Quotation } from '../types';
 import { Button } from '@/components/ui/button';
 import { X, Eye, Download } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 interface PDFPreviewProps {
   isOpen: boolean;
   onClose: () => void;
   onDownload: () => void;
   title: string;
-  pdfContent: string; // HTML or text content to preview
+  children: ReactNode;
 }
 
-/**
- * Generic PDF Preview Modal Component
- * Displays a preview of the PDF before download
- */
-export function PDFPreviewModal({ isOpen, onClose, onDownload, title, pdfContent }: PDFPreviewProps) {
+function PreviewField({ label, value, className = '' }: { label: string; value: ReactNode; className?: string }) {
+  return (
+    <div className={className}>
+      <p className="text-xs font-bold uppercase text-gray-500">{label}</p>
+      <div className="font-semibold text-gray-900">{value}</div>
+    </div>
+  );
+}
+
+function SignaturePreview({
+  name,
+  title,
+  image,
+  fallbackName,
+}: {
+  name?: string;
+  title?: string;
+  image?: string;
+  fallbackName: string;
+}) {
+  if (!name && !title && !image) {
+    return <p className="text-xs italic text-gray-500">No signatory assigned</p>;
+  }
+
+  return (
+    <>
+      {image ? (
+        <img src={image} alt={name || fallbackName} className="mx-auto mb-2 h-10 object-contain" />
+      ) : null}
+      <p className="border-t border-gray-400 pt-2">________________________</p>
+      <p className="font-bold text-[#003d7a]">{name || fallbackName}</p>
+      <p className="text-xs text-gray-600">{title || 'No title assigned'}</p>
+    </>
+  );
+}
+
+export function PDFPreviewModal({ isOpen, onClose, onDownload, title, children }: PDFPreviewProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200]">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-black text-[#003d7a] uppercase flex items-center gap-2">
-            <Eye className="w-6 h-6" /> {title} Preview
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60">
+      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-gray-200 p-6">
+          <h2 className="flex items-center gap-2 text-2xl font-black uppercase text-[#003d7a]">
+            <Eye className="h-6 w-6" /> {title} Preview
           </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
+          <button onClick={onClose} className="rounded-lg p-2 transition-colors hover:bg-gray-100">
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Preview Content */}
         <div className="flex-1 overflow-auto bg-gray-50 p-8">
-          <div className="bg-white rounded-xl shadow-sm p-8 max-w-4xl mx-auto">
-            <div
-              dangerouslySetInnerHTML={{ __html: pdfContent }}
-              className="text-sm leading-relaxed"
-            />
-          </div>
+          <div className="mx-auto max-w-4xl rounded-xl bg-white p-8 shadow-sm">{children}</div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-6 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
-          <Button
-            onClick={onClose}
-            variant="outline"
-            className="text-gray-700 border-gray-300"
-          >
+        <div className="flex justify-end gap-3 border-t border-gray-200 bg-gray-50 p-6">
+          <Button onClick={onClose} variant="outline" className="border-gray-300 text-gray-700">
             Close
           </Button>
-          <Button
-            onClick={onDownload}
-            className="bg-[#e8b400] hover:bg-[#d4a200] text-black font-bold"
-          >
-            <Download className="w-4 h-4 mr-2" /> Download PDF
+          <Button onClick={onDownload} className="bg-[#e8b400] font-bold text-black hover:bg-[#d4a200]">
+            <Download className="mr-2 h-4 w-4" /> Download PDF
           </Button>
         </div>
       </div>
@@ -67,201 +79,202 @@ export function PDFPreviewModal({ isOpen, onClose, onDownload, title, pdfContent
   );
 }
 
-/**
- * Generate HTML preview for Certificate
- */
-export function generateCertificatePreviewHTML(cert: Certificate): string {
-  const rowsHTML = cert.tableData
-    .map(row => {
-      if (row.section) {
-        return `
-          <tr class="bg-gray-100">
-            <td colspan="100%" class="font-bold text-gray-700 p-2 text-sm uppercase">
-              ${row.section}
-            </td>
-          </tr>
-        `;
-      }
-      const resultCells = row.results
-        .map(r => `<td class="border p-2 text-center text-xs">${r || '—'}</td>`)
-        .join('');
-      
-      return `
-        <tr class="hover:bg-blue-50">
-          <td class="border p-2 text-sm font-semibold">${row.name}</td>
-          <td class="border p-2 text-xs text-center">${row.unit}</td>
-          <td class="border p-2 text-xs text-center font-mono">${row.limit}</td>
-          ${resultCells}
-        </tr>
-      `;
-    })
-    .join('');
+export function CertificatePreviewDocument({ certificate }: { certificate: Certificate }) {
+  return (
+    <div className="relative mb-8">
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-8xl font-black tracking-widest text-[#003d7a] opacity-10">
+        OFFICIAL
+      </div>
+      <div className="relative">
+        <h1 className="mb-2 text-2xl font-black text-[#003d7a]">WATER ANALYSIS CERTIFICATE</h1>
+        <p className="mb-4 text-xs text-gray-500">
+          Certificate Number: <strong>{certificate.certNumber}</strong>
+        </p>
 
-  return `
-    <div class="relative mb-8">
-      <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 text-8xl font-black text-[#003d7a] tracking-widest">OFFICIAL</div>
-      <div class="relative">
-        <h1 class="text-2xl font-black text-[#003d7a] mb-2">WATER ANALYSIS CERTIFICATE</h1>
-        <p class="text-xs text-gray-500 mb-4">Certificate Number: <strong>${cert.certNumber}</strong></p>
-        
-        <div class="grid grid-cols-2 gap-6 mb-6 text-sm">
-          <div>
-            <p class="text-xs text-gray-500 uppercase font-bold">Client</p>
-            <p class="font-semibold">${cert.client}</p>
-            ${cert.clientPhone ? `<p class="text-xs text-gray-600">📞 ${cert.clientPhone}</p>` : ''}
-            ${cert.clientEmail ? `<p class="text-xs text-gray-600">📧 ${cert.clientEmail}</p>` : ''}
-          </div>
-          <div>
-            <p class="text-xs text-gray-500 uppercase font-bold">Sample Type</p>
-            <p class="font-semibold">${cert.sampleType}</p>
-          </div>
-          <div>
-            <p class="text-xs text-gray-500 uppercase font-bold">Sample Location</p>
-            <p class="font-semibold">${cert.location}</p>
-          </div>
-          <div>
-            <p class="text-xs text-gray-500 uppercase font-bold">Date Sampled</p>
-            <p class="font-semibold">${cert.dateSampled}</p>
-          </div>
+        <div className="mb-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
+          <PreviewField label="Client" value={certificate.client || 'Not provided'} />
+          <PreviewField label="Sample Type" value={certificate.sampleType || 'Not provided'} />
+          <PreviewField label="Sample Location" value={certificate.location || 'Not provided'} />
+          <PreviewField label="Date Sampled" value={certificate.dateSampled || 'Not provided'} />
+          <PreviewField
+            label="Client Contact"
+            value={
+              <div className="space-y-1">
+                {certificate.clientPhone ? <p>Phone: {certificate.clientPhone}</p> : null}
+                {certificate.clientEmail ? <p>Email: {certificate.clientEmail}</p> : null}
+                {!certificate.clientPhone && !certificate.clientEmail ? <p>Not provided</p> : null}
+              </div>
+            }
+          />
+          <PreviewField
+            label="Samples"
+            value={certificate.samples.length > 0 ? certificate.samples.join(', ') : 'None'}
+          />
         </div>
 
-        <div class="mb-3 text-xs text-gray-600"><strong>Samples:</strong> ${cert.samples.length > 0 ? cert.samples.join(', ') : 'None'}</div>
+        <table className="mb-6 w-full border-collapse border border-gray-300 text-xs">
+          <thead className="bg-[#003d7a] text-white">
+            <tr>
+              <th className="border p-2 text-left">Parameter</th>
+              <th className="border p-2 text-center">Unit</th>
+              <th className="border p-2 text-center">Limit</th>
+              {certificate.samples.map((sample) => (
+                <th key={sample} className="border p-2 text-center">
+                  {sample}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {certificate.tableData.map((row, index) =>
+              row.section ? (
+                <tr key={`${row.id}-${index}`} className="bg-gray-100">
+                  <td colSpan={3 + certificate.samples.length} className="p-2 text-sm font-bold uppercase text-gray-700">
+                    {row.section}
+                  </td>
+                </tr>
+              ) : (
+                <tr key={`${row.id}-${index}`} className="hover:bg-blue-50">
+                  <td className="border p-2 text-sm font-semibold">{row.name || '-'}</td>
+                  <td className="border p-2 text-center text-xs">{row.unit || '-'}</td>
+                  <td className="border p-2 text-center font-mono text-xs">{row.limit || '-'}</td>
+                  {certificate.samples.map((sample, sampleIndex) => (
+                    <td key={`${sample}-${sampleIndex}`} className="border p-2 text-center text-xs">
+                      {row.results[sampleIndex] || '-'}
+                    </td>
+                  ))}
+                </tr>
+              )
+            )}
+          </tbody>
+        </table>
 
-      <table class="w-full border-collapse border border-gray-300 mb-6 text-xs">
-        <thead class="bg-[#003d7a] text-white">
-          <tr>
-            <th class="border p-2 text-left">Parameter</th>
-            <th class="border p-2 text-center">Unit</th>
-            <th class="border p-2 text-center">Limit</th>
-            ${cert.samples.map(s => `<th class="border p-2 text-center">${s}</th>`).join('')}
-          </tr>
-        </thead>
-        <tbody>
-          ${rowsHTML}
-        </tbody>
-      </table>
-
-      <div class="border-t-2 border-[#003d7a] pt-6 mt-6">
-        <p class="text-xs text-gray-600 mb-4">Date Reported: <strong>${cert.dateReported}</strong></p>
-        <div class="grid grid-cols-2 gap-8 text-sm">
-          <div class="text-center">
-            ${(cert.sign1Name || cert.sign1Title || cert.sign1SignatureImage) ? `
-              ${cert.sign1SignatureImage ? `<img src="${cert.sign1SignatureImage}" alt="Signature 1" class="mx-auto mb-2 h-10 object-contain" />` : ''}
-              <p class="border-t border-gray-400 pt-2">________________________</p>
-              <p class="font-bold text-[#003d7a]">${cert.sign1Name || 'No Name Assigned'}</p>
-              <p class="text-xs text-gray-600">${cert.sign1Title || 'No Title Assigned'}</p>
-            ` : '<p class="text-xs text-gray-500 italic">No signatory 1 assigned</p>'}
-          </div>
-          <div class="text-center">
-            ${(cert.sign2Name || cert.sign2Title || cert.sign2SignatureImage) ? `
-              ${cert.sign2SignatureImage ? `<img src="${cert.sign2SignatureImage}" alt="Signature 2" class="mx-auto mb-2 h-10 object-contain" />` : ''}
-              <p class="border-t border-gray-400 pt-2">________________________</p>
-              <p class="font-bold text-[#003d7a]">${cert.sign2Name || '(Authorized Officer)'}</p>
-              <p class="text-xs text-gray-600">${cert.sign2Title || 'No Title Assigned'}</p>
-            ` : '<p class="text-xs text-gray-500 italic">No signatory 2 assigned</p>'}
+        <div className="mt-6 border-t-2 border-[#003d7a] pt-6">
+          <p className="mb-4 text-xs text-gray-600">
+            Date Reported: <strong>{certificate.dateReported || 'Not provided'}</strong>
+          </p>
+          <div className="grid grid-cols-1 gap-8 text-sm md:grid-cols-2">
+            <div className="text-center">
+              <SignaturePreview
+                name={certificate.sign1Name}
+                title={certificate.sign1Title}
+                image={certificate.sign1SignatureImage}
+                fallbackName="Authorized Officer"
+              />
+            </div>
+            <div className="text-center">
+              <SignaturePreview
+                name={certificate.sign2Name}
+                title={certificate.sign2Title}
+                image={certificate.sign2SignatureImage}
+                fallbackName="Verification Officer"
+              />
+            </div>
           </div>
         </div>
       </div>
     </div>
-  `;
+  );
 }
 
-/**
- * Generate HTML preview for Quotation
- */
-export function generateQuotationPreviewHTML(quote: Quotation): string {
-  const itemRows = quote.items
-    .map((item, idx) => `
-      <tr class="hover:bg-blue-50">
-        <td class="border p-2 text-center text-xs">${idx + 1}</td>
-        <td class="border p-2 text-sm">${item.parameterName}</td>
-        <td class="border p-2 text-center text-xs">${item.quantity}</td>
-        <td class="border p-2 text-right text-xs font-mono">K ${item.unitPrice.toFixed(2)}</td>
-        <td class="border p-2 text-right text-xs font-mono text-orange-600">K ${item.tax.toFixed(2)}</td>
-        <td class="border p-2 text-right text-sm font-bold">K ${item.amount.toFixed(2)}</td>
-      </tr>
-    `)
-    .join('');
-
-  return `
-    <div class="relative mb-8">
-      <div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10 text-8xl font-black text-[#003d7a] tracking-widest">OFFICIAL</div>
-      <div class="relative">
-        <h1 class="text-2xl font-black text-[#003d7a] mb-2">SERVICE QUOTATION</h1>
-        <p class="text-xs text-gray-500 mb-6">Quote Number: <strong>${quote.quoteNumber}</strong></p>
-
-        <div class="grid grid-cols-2 gap-6 mb-6 text-sm">
-          <div>
-            <p class="text-xs text-gray-500 uppercase font-bold">Client</p>
-            <p class="font-semibold">${quote.client}</p>
-            ${quote.clientPhone ? `<p class="text-xs text-gray-600">📞 ${quote.clientPhone}</p>` : ''}
-            ${quote.clientEmail ? `<p class="text-xs text-gray-600">📧 ${quote.clientEmail}</p>` : ''}
-        </div>
-        <div>
-          <p class="text-xs text-gray-500 uppercase font-bold">Date</p>
-          <p class="font-semibold">${quote.date}</p>
-        </div>
-        <div class="col-span-2">
-          <p class="text-xs text-gray-500 uppercase font-bold mb-1">Billing Address</p>
-          <p class="text-sm whitespace-pre-wrap">${quote.clientAddress}</p>
-        </div>
+export function QuotationPreviewDocument({ quotation }: { quotation: Quotation }) {
+  return (
+    <div className="relative mb-8">
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-8xl font-black tracking-widest text-[#003d7a] opacity-10">
+        OFFICIAL
       </div>
+      <div className="relative">
+        <h1 className="mb-2 text-2xl font-black text-[#003d7a]">SERVICE QUOTATION</h1>
+        <p className="mb-6 text-xs text-gray-500">
+          Quote Number: <strong>{quotation.quoteNumber}</strong>
+        </p>
 
-      <div class="mb-4 text-xs text-gray-600"><strong>Samples:</strong> ${quote.samples && quote.samples.length > 0 ? quote.samples.join(', ') : 'None'}</div>
-
-      <table class="w-full border-collapse border border-gray-300 mb-6 text-xs">
-        <thead class="bg-[#003d7a] text-white">
-          <tr>
-            <th class="border p-2 text-center">#</th>
-            <th class="border p-2 text-left">Description</th>
-            <th class="border p-2 text-center">Qty</th>
-            <th class="border p-2 text-right">Unit Price</th>
-            <th class="border p-2 text-right">Tax (16%)</th>
-            <th class="border p-2 text-right">Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itemRows}
-        </tbody>
-      </table>
-
-      <div class="space-y-2 text-sm mb-6 border-t-2 border-[#003d7a] pt-4">
-        <div class="flex justify-between">
-          <span class="text-gray-600 font-semibold">Subtotal</span>
-          <span class="font-bold">K ${quote.subtotal.toFixed(2)}</span>
+        <div className="mb-6 grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
+          <PreviewField label="Client" value={quotation.client || 'Not provided'} />
+          <PreviewField label="Date" value={quotation.date || 'Not provided'} />
+          <PreviewField
+            label="Client Contact"
+            value={
+              <div className="space-y-1">
+                {quotation.clientPhone ? <p>Phone: {quotation.clientPhone}</p> : null}
+                {quotation.clientEmail ? <p>Email: {quotation.clientEmail}</p> : null}
+                {!quotation.clientPhone && !quotation.clientEmail ? <p>Not provided</p> : null}
+              </div>
+            }
+          />
+          <PreviewField label="Valid Until" value={quotation.validUntil || 'Not provided'} />
+          <PreviewField
+            label="Billing Address"
+            className="md:col-span-2"
+            value={<p className="whitespace-pre-wrap text-sm">{quotation.clientAddress || 'Not provided'}</p>}
+          />
         </div>
-        <div class="flex justify-between text-orange-600">
-          <span class="font-semibold">VAT (16%)</span>
-          <span class="font-bold">K ${quote.totalTax.toFixed(2)}</span>
-        </div>
-        <div class="flex justify-between bg-[#e8b400]/10 p-3 rounded font-bold text-[#003d7a]">
-          <span class="uppercase">GRAND TOTAL</span>
-          <span class="text-lg">K ${quote.totalAmount.toFixed(2)}</span>
-        </div>
-      </div>
 
-      <p class="text-xs text-gray-600 mb-4">Valid Until: <strong>${quote.validUntil}</strong></p>
+        <p className="mb-4 text-xs text-gray-600">
+          <strong>Samples:</strong> {quotation.samples.length > 0 ? quotation.samples.join(', ') : 'None'}
+        </p>
 
-      <div class="border-t-2 border-[#003d7a] pt-6 mt-6">
-        <div class="grid grid-cols-2 gap-8 text-sm">
-          <div class="text-center">
-            ${(quote.sign1Name || quote.sign1Title || quote.sign1SignatureImage) ? `
-              ${quote.sign1SignatureImage ? `<img src="${quote.sign1SignatureImage}" alt="Signature 1" class="mx-auto mb-2 h-10 object-contain" />` : ''}
-              <p class="border-t border-gray-400 pt-2">________________________</p>
-              <p class="font-bold text-[#003d7a]">${quote.sign1Name || 'No Name Assigned'}</p>
-              <p class="text-xs text-gray-600">${quote.sign1Title || 'No Title Assigned'}</p>
-            ` : '<p class="text-xs text-gray-500 italic">No signatory 1 assigned</p>'}
+        <table className="mb-6 w-full border-collapse border border-gray-300 text-xs">
+          <thead className="bg-[#003d7a] text-white">
+            <tr>
+              <th className="border p-2 text-center">#</th>
+              <th className="border p-2 text-left">Description</th>
+              <th className="border p-2 text-center">Qty</th>
+              <th className="border p-2 text-right">Unit Price</th>
+              <th className="border p-2 text-right">Tax (16%)</th>
+              <th className="border p-2 text-right">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {quotation.items.map((item, index) => (
+              <tr key={item.id} className="hover:bg-blue-50">
+                <td className="border p-2 text-center text-xs">{index + 1}</td>
+                <td className="border p-2 text-sm">{item.parameterName}</td>
+                <td className="border p-2 text-center text-xs">{item.quantity}</td>
+                <td className="border p-2 text-right text-xs font-mono">K {item.unitPrice.toFixed(2)}</td>
+                <td className="border p-2 text-right text-xs font-mono text-orange-600">K {item.tax.toFixed(2)}</td>
+                <td className="border p-2 text-right text-sm font-bold">K {item.amount.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        <div className="mb-6 space-y-2 border-t-2 border-[#003d7a] pt-4 text-sm">
+          <div className="flex justify-between">
+            <span className="font-semibold text-gray-600">Subtotal</span>
+            <span className="font-bold">K {quotation.subtotal.toFixed(2)}</span>
           </div>
-          <div class="text-center">
-            ${(quote.sign2Name || quote.sign2Title || quote.sign2SignatureImage) ? `
-              ${quote.sign2SignatureImage ? `<img src="${quote.sign2SignatureImage}" alt="Signature 2" class="mx-auto mb-2 h-10 object-contain" />` : ''}
-              <p class="border-t border-gray-400 pt-2">________________________</p>
-              <p class="font-bold text-[#003d7a]">${quote.sign2Name || '(Authorized Officer)'}</p>
-              <p class="text-xs text-gray-600">${quote.sign2Title || 'No Title Assigned'}</p>
-            ` : '<p class="text-xs text-gray-500 italic">No signatory 2 assigned</p>'}
+          <div className="flex justify-between text-orange-600">
+            <span className="font-semibold">VAT (16%)</span>
+            <span className="font-bold">K {quotation.totalTax.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between rounded bg-[#e8b400]/10 p-3 font-bold text-[#003d7a]">
+            <span className="uppercase">Grand Total</span>
+            <span className="text-lg">K {quotation.totalAmount.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <div className="mt-6 border-t-2 border-[#003d7a] pt-6">
+          <div className="grid grid-cols-1 gap-8 text-sm md:grid-cols-2">
+            <div className="text-center">
+              <SignaturePreview
+                name={quotation.sign1Name}
+                title={quotation.sign1Title}
+                image={quotation.sign1SignatureImage}
+                fallbackName="Prepared By"
+              />
+            </div>
+            <div className="text-center">
+              <SignaturePreview
+                name={quotation.sign2Name}
+                title={quotation.sign2Title}
+                image={quotation.sign2SignatureImage}
+                fallbackName="Authorized Signatory"
+              />
+            </div>
           </div>
         </div>
       </div>
     </div>
-  `;
+  );
 }

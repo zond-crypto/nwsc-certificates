@@ -1,16 +1,12 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, memo } from 'react';
 import { Certificate, Parameter, RegulatoryLimit, Signature } from '../types';
-import { DEFAULT_PARAMS } from '../constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, X, Printer, Download, Save, FileDown, ChevronLeft, ChevronRight, GripHorizontal, LayoutGrid, Eye } from 'lucide-react';
 import { toast } from 'sonner';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { NkanaLogo } from './Logo';
-import { PDFPreviewModal, generateCertificatePreviewHTML } from './PDFPreviewModal';
-import { buildDocumentFilename } from '../utils/fileNaming';
+import { CertificatePreviewDocument, PDFPreviewModal } from './PDFPreviewModal';
 import { generateCOAPdf, exportCOACSV } from '../utils/pdfGenerators';
 
 interface Props {
@@ -354,11 +350,10 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
     setPrintPages(pages);
   }, [certificate.tableData, certificate.samples, certificate.sampleType]);
 
-  const limitHeader = certificate.sampleType === 'Drinking Water' ? 'WHO Limit' :
-                      certificate.sampleType === 'Wastewater' ? 'ZABS Limit' : 'Limit';
+  const limitHeader = certificate.sampleType === 'Wastewater' ? 'ZEMA Limit' : 'ZABS Limit';
 
   // Debug overlay for development mode
-  const isDev = true; // TODO: Replace with proper dev mode check
+  const isDev = typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname);
 
   return (
     <div className="relative">
@@ -446,6 +441,7 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
                 <SelectItem value="Wastewater">Wastewater</SelectItem>
                 <SelectItem value="Process Water">Process Water</SelectItem>
                 <SelectItem value="Borehole Water">Borehole Water</SelectItem>
+                <SelectItem value="Dust Samples">Dust Samples</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -491,21 +487,7 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
             <Button onClick={addRow} size="sm" className="h-7 px-2 text-xs">
               <Plus className="w-3 h-3 mr-1" /> Add Parameter
             </Button>
-            <div className="relative">
-              <Button onClick={() => setShowCategoryMenu(!showCategoryMenu)} size="sm" variant="outline" className="h-7 px-2 text-xs">
-                <LayoutGrid className="w-3 h-3 mr-1" /> Add Section
-              </Button>
-              {showCategoryMenu && (
-                <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 min-w-48">
-                  <div className="p-2">
-                    <button onClick={() => addCategory('Physical Parameters')} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">Physical Parameters</button>
-                    <button onClick={() => addCategory('Chemical Parameters')} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">Chemical Parameters</button>
-                    <button onClick={() => addCategory('Microbiological Parameters')} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">Microbiological Parameters</button>
-                    <button onClick={() => addCategory('Heavy Metals')} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded">Heavy Metals</button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Add Section button removed as per requirements */}
           </div>
 
           <div className="flex items-center gap-1">
@@ -567,11 +549,7 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
                 return certificate.tableData.map((row, i) => {
                   const isSection = !!row.section;
                   if (isSection) {
-                    return (
-                      <tr key={row.id || i} className="section-header bg-[#003d7a] text-white text-[10px] print:text-[9px] font-bold tracking-widest uppercase print:bg-gray-200 print:text-black">
-                        <td colSpan={5 + certificate.samples.length} className="p-1.5 px-2 sticky print:static left-0 z-10 print:z-auto bg-[#003d7a] print:bg-gray-200">{row.section}</td>
-                      </tr>
-                    );
+                    return null; // Sections are deprecated and removed from view
                   }
 
                   const rowNum = ++currentParamNum;
@@ -638,7 +616,7 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs font-bold text-[#003d7a]">Signatory 2 (Verification)</label>
+          <label className="text-xs font-bold text-[#003d7a]">Prepared By</label>
           <select value={selectedSign2Id} onChange={e => applySignature('sign2', e.target.value)} className="w-full border rounded px-2 py-1 text-sm">
             <option value="">(Choose saved signature)</option>
             {signatures.map(sig => <option key={sig.id} value={sig.id}>{sig.fullName} • {sig.role}{sig.isDefault ? ' (default)' : ''}</option>)}
@@ -647,10 +625,14 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
             <button className="text-xs text-[#003d7a] underline" onClick={() => applyDefaultSignature('sign2')}>Use default</button>
             <span className="text-xs text-gray-500">or edit below</span>
           </div>
-          <div className="text-center">
-            <div className="border-t border-black w-48 mx-auto mt-2 mb-2"></div>
-            <input className="w-full bg-transparent border-none outline-none text-center font-bold text-sm text-[#003d7a] print:text-black" value={certificate.sign2Name} onChange={e => handleMetaChange('sign2Name', e.target.value)} placeholder="Name" />
-            <input className="w-full bg-transparent border-none outline-none text-center text-xs text-gray-500 print:text-black mt-1" value={certificate.sign2Title} onChange={e => handleMetaChange('sign2Title', e.target.value)} placeholder="Title" />
+          <div className="text-center pt-2">
+            {certificate.sign2SignatureImage ? (
+              <img src={certificate.sign2SignatureImage} alt="Signature" className="h-10 object-contain mx-auto mb-1" />
+            ) : (
+              <div className="h-10 border border-dashed border-gray-300 w-32 mx-auto mb-1 flex items-center justify-center text-xs text-gray-400">No Signature</div>
+            )}
+            <div className="border-t border-black w-48 mx-auto mb-2"></div>
+            <input className="w-full bg-transparent border-none outline-none text-center font-bold text-sm text-[#003d7a] print:text-black" value={certificate.sign2Name} onChange={e => handleMetaChange('sign2Name', e.target.value)} placeholder="Technician Name" />
           </div>
         </div>
       </div>
@@ -668,7 +650,7 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
         <Button onClick={() => window.print()} size="sm" variant="secondary" className="shadow-lg bg-gray-200 text-black hover:bg-gray-300 h-8 px-3 text-xs">
           <Printer className="w-3.5 h-3.5 mr-1" /> Print
         </Button>
-        <Button onClick={() => setShowPreview(true)} size="sm" variant="secondary" className="shadow-lg bg-purple-200 text-purple-900 hover:bg-purple-300 h-8 px-3 text-xs font-semibold">
+        <Button onClick={() => setShowPreview(true)} size="sm" variant="secondary" className="shadow-lg border border-[#003d7a]/15 bg-white h-8 px-3 text-xs font-semibold text-[#003d7a] hover:bg-blue-50">
           <Eye className="w-3.5 h-3.5 mr-1" /> Preview
         </Button>
         <Button onClick={downloadPDF} size="sm" variant="secondary" className="shadow-lg bg-[#e8b400] text-black hover:bg-[#d4a200] h-8 px-3 text-xs font-semibold">
@@ -688,8 +670,9 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
           downloadPDF();
         }}
         title={certificate.certNumber}
-        pdfContent={generateCertificatePreviewHTML(certificate)}
-      />
+      >
+        <CertificatePreviewDocument certificate={certificate} />
+      </PDFPreviewModal>
 
       {/* Delete Confirmation Modal */}
       {rowToDelete !== null && (

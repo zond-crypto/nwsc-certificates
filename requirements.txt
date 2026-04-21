@@ -3,3 +3,6 @@
 
 reportlab>=4.0.0    # Core PDF generation (platypus, canvas, flowables)
 pillow>=10.0.0      # Image decoding required by reportlab's ImageReader
+flask>=3.0.0        # Web framework for backend
+flask-compress>=1.14 # Response compression
+pypdf>=3.17.0       # PDF validation and metadata checking

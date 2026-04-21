@@ -28,9 +28,7 @@ export async function generateCOAPdf(certificate: Certificate): Promise<void> {
     }
   }
 
-  const limitHeader =
-    certificate.sampleType === 'Drinking Water' ? 'WHO/ZABS Limit' :
-    certificate.sampleType === 'Wastewater'     ? 'ZEMA Limit'     : 'Limit';
+  const limitHeader = certificate.sampleType === 'Wastewater' ? 'ZEMA Limit' : 'ZABS Limit';
 
   const row1: [string, string][] = [
     ['Cert No:',       certificate.certNumber    || '—'],
@@ -48,7 +46,7 @@ export async function generateCOAPdf(certificate: Certificate): Promise<void> {
     const globalStart = gi * MAX_SAMPLE_COLS;
 
     if (gi > 0) doc.addPage();
-    await drawSharedWatermark(doc, logo);
+    drawSharedWatermark(doc, logo);
     const afterHdr = drawSharedHeader(doc, logo, 'WATER ANALYSIS CERTIFICATE');
     const afterMeta = drawSharedMetadata(doc, row1, row2, afterHdr);
 
@@ -106,7 +104,7 @@ export async function generateCOAPdf(certificate: Certificate): Promise<void> {
       alternateRowStyles: { fillColor: [235, 240, 248] as [number,number,number] },
       rowPageBreak: 'avoid',
       didDrawPage: (data) => {
-        void (async () => { await drawSharedWatermark(doc, logo); })();
+        drawSharedWatermark(doc, logo);
         const ah = drawSharedHeader(doc, logo, 'WATER ANALYSIS CERTIFICATE');
         const am = drawSharedMetadata(doc, row1, row2, ah);
         if (gi > 0) {
@@ -129,11 +127,11 @@ export async function generateCOAPdf(certificate: Certificate): Promise<void> {
   const signSpace = 60;
   if (lastY + signSpace > A4_H - 15) {
     doc.addPage();
-    await drawSharedWatermark(doc, logo);
+    drawSharedWatermark(doc, logo);
     drawSharedHeader(doc, logo, 'WATER ANALYSIS CERTIFICATE');
-    drawSharedSignatories(doc, certificate.sign1Name, certificate.sign1Title, certificate.sign1SignatureImage, certificate.sign2Name, certificate.sign2Title, certificate.sign2SignatureImage, 58);
+    drawSharedSignatories(doc, certificate.sign1Name, certificate.sign1Title, certificate.sign1SignatureImage, certificate.sign2Name, '', certificate.sign2SignatureImage, 58);
   } else {
-    drawSharedSignatories(doc, certificate.sign1Name, certificate.sign1Title, certificate.sign1SignatureImage, certificate.sign2Name, certificate.sign2Title, certificate.sign2SignatureImage, lastY + 8);
+    drawSharedSignatories(doc, certificate.sign1Name, certificate.sign1Title, certificate.sign1SignatureImage, certificate.sign2Name, '', certificate.sign2SignatureImage, lastY + 8);
   }
 
   drawSharedFooters(doc, doc.getNumberOfPages());

@@ -50,7 +50,7 @@ def validate_outputs(pdf_path: str, csv_path: str) -> Dict[str, Any]:
                 reader = list(csv.reader(f))
                 # Heuristic: check for section markers or specific labels
                 labels = [row[0] for row in reader if row]
-                has_header = "NKANA WATER SUPPLY AND SANITATION COMPANY" in str(reader[0])
+                has_header = any(h in reader[0][0] for h in ["NWSC WATER ANALYSIS CERTIFICATE EXPORT", "NWSC QUOTATION EXPORT"])
                 has_meta = any("Certificate No" in l or "Quotation No" in l for l in labels)
                 if has_header and has_meta:
                     results["csv"]["structure_ok"] = True

@@ -135,7 +135,7 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
   drawSharedSignatories(
     doc,
     quotation.sign1Name, "Prepared By", quotation.sign1SignatureImage,
-    quotation.sign2Name, "Authorized Signature", quotation.sign2SignatureImage,
+    quotation.sign2Name, "", quotation.sign2SignatureImage,
     ty + 10
   );
 

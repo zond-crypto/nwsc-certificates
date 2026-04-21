@@ -3,16 +3,14 @@ import { RegulatoryLimit } from '../types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Trash2, Printer, ShieldCheck, RefreshCw, Download, Upload } from 'lucide-react';
+import { Plus, Trash2, ShieldCheck, RefreshCw, Download, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import {
-  fetchZABSStandards,
-  fetchZEMAStandards,
-  getCachedStandards,
+  cacheStandards,
   clearStandardsCache,
-  getCacheInfo,
   exportStandardsAsJSON,
-  importStandardsFromJSON
+  importStandardsFromJSON,
+  mergeRegulatoryLimits,
 } from '../utils/standardsFetcher';
 
 interface Props {
@@ -23,32 +21,13 @@ interface Props {
 
 export function RegulatoryManager({ limits, setLimits, onReset }: Props) {
   const [newBody, setNewBody] = useState<'ZABS' | 'ZEMA'>('ZABS');
-  const [newParam, setNewParam] = useState("");
-  const [newValue, setNewValue] = useState("");
-  const [newUnit, setNewUnit] = useState("mg/L");
-  const [isFetching, setIsFetching] = useState(false);
-
-  const cacheInfo = getCacheInfo();
-  const cacheStatus = cacheInfo ? `${cacheInfo.source} (${cacheInfo.ageInDays} days ago)` : 'No cache';
-
-  const handleFetchStandards = async () => {
-    setIsFetching(true);
-    try {
-      const zabsData = await fetchZABSStandards();
-      const zemaData = await fetchZEMAStandards();
-      const allData = [...zabsData, ...zemaData];
-      setLimits(prev => [...prev, ...allData]);
-      toast.success('Standards fetched and added successfully!');
-    } catch (error) {
-      toast.error('Failed to fetch standards from web');
-    } finally {
-      setIsFetching(false);
-    }
-  };
+  const [newParam, setNewParam] = useState('');
+  const [newValue, setNewValue] = useState('');
+  const [newUnit, setNewUnit] = useState('mg/L');
 
   const handleExport = () => {
     const dataStr = exportStandardsAsJSON(limits);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
     const exportFileDefaultName = 'water-standards.json';
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
@@ -63,135 +42,168 @@ export function RegulatoryManager({ limits, setLimits, onReset }: Props) {
     input.accept = '.json';
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          try {
-            const imported = importStandardsFromJSON(e.target?.result as string);
-            setLimits(prev => [...prev, ...imported]);
-            toast.success('Standards imported successfully!');
-          } catch (error) {
-            toast.error('Failed to import standards');
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const imported = importStandardsFromJSON(event.target?.result as string);
+          const merged = mergeRegulatoryLimits(limits, imported);
+
+          if (merged.addedCount === 0) {
+            toast.info('All imported standards were already present.');
+            return;
           }
-        };
-        reader.readAsText(file);
-      }
+
+          setLimits(merged.limits);
+          cacheStandards(merged.limits, 'imported');
+          toast.success(`Imported ${merged.addedCount} standard${merged.addedCount === 1 ? '' : 's'}.`);
+        } catch (error) {
+          toast.error('Failed to import standards');
+        }
+      };
+      reader.readAsText(file);
     };
     input.click();
   };
 
   const removeLimit = (id: string) => {
-    setLimits(prev => prev.filter(l => l.id !== id));
+    const nextLimits = limits.filter(limit => limit.id !== id);
+    setLimits(nextLimits);
+    cacheStandards(nextLimits, 'manual');
     toast.success('Standard removed successfully!');
   };
 
   const addLimit = () => {
     if (!newParam || !newValue) {
-      toast.error("Enter parameter and limit value");
+      toast.error('Enter parameter and limit value');
       return;
     }
+
     const newLimit: RegulatoryLimit = {
       id: `rl${Date.now()}`,
       regulatoryBody: newBody,
       parameterName: newParam,
       limitValue: newValue,
-      unit: newUnit
+      unit: newUnit,
     };
-    setLimits(prev => [...prev, newLimit]);
-    setNewParam("");
-    setNewValue("");
-    toast.success("Standard added successfully!");
+
+    const merged = mergeRegulatoryLimits(limits, [newLimit]);
+    if (merged.addedCount === 0) {
+      toast.info('That standard already exists.');
+      return;
+    }
+
+    setLimits(merged.limits);
+    cacheStandards(merged.limits, 'manual');
+    setNewParam('');
+    setNewValue('');
+    toast.success('Standard added successfully!');
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 rounded-xl border bg-white p-6 shadow-lg">
+      <div className="flex items-center justify-between">
         <div>
-           <h2 className="text-2xl font-black text-[#003d7a] uppercase flex items-center gap-2">
-              <ShieldCheck className="w-7 h-7 text-[#e8b400]" /> Water Quality standards database
-           </h2>
-           <p className="text-xs text-gray-400 font-bold uppercase tracking-widest mt-1">ZABS & ZEMA Regulatory Compliance Center • {cacheStatus}</p>
+          <h2 className="flex items-center gap-2 text-2xl font-black uppercase text-[#003d7a]">
+            <ShieldCheck className="h-7 w-7 text-[#e8b400]" /> Water Quality Standards Library
+          </h2>
+          <p className="mt-1 text-xs font-bold uppercase tracking-widest text-gray-400">
+            Manual and JSON import workflow for ZABS and ZEMA references • {limits.length} active standards
+          </p>
         </div>
         <div className="flex gap-2">
-           <Button variant="outline" size="sm" onClick={handleFetchStandards} disabled={isFetching} className="text-xs border-blue-300 text-blue-600 hover:bg-blue-50">
-              <RefreshCw className={`w-3 h-3 mr-1 ${isFetching ? 'animate-spin' : ''}`} /> {isFetching ? 'Fetching...' : 'Refresh from Web'}
-           </Button>
-           <Button variant="outline" size="sm" onClick={handleExport} className="text-xs border-gray-300">
-              <Download className="w-3 h-3 mr-1" /> Export
-           </Button>
-           <Button variant="outline" size="sm" onClick={handleImport} className="text-xs border-gray-300">
-              <Upload className="w-3 h-3 mr-1" /> Import
-           </Button>
-           <Button variant="outline" size="sm" onClick={onReset} className="text-xs border-gray-300">
-              <RefreshCw className="w-3 h-3 mr-1" /> Reset All
-           </Button>
+          <Button variant="outline" size="sm" onClick={handleExport} className="text-xs border-gray-300">
+            <Download className="mr-1 h-3 w-3" /> Export
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleImport} className="text-xs border-gray-300">
+            <Upload className="mr-1 h-3 w-3" /> Import
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              clearStandardsCache();
+              toast.success('Standards import cache cleared.');
+            }}
+            className="text-xs border-gray-300"
+          >
+            <RefreshCw className="mr-1 h-3 w-3" /> Clear Cache
+          </Button>
+          <Button variant="outline" size="sm" onClick={onReset} className="text-xs border-gray-300">
+            <RefreshCw className="mr-1 h-3 w-3" /> Reset All
+          </Button>
         </div>
       </div>
 
-      <div className="bg-[#f0f9ff] p-5 rounded-2xl border border-blue-100 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-         <div className="space-y-2">
-            <label className="text-[10px] font-black text-[#003d7a] uppercase ml-1">Regulatory Body</label>
-            <Select value={newBody} onValueChange={v => setNewBody(v as 'ZABS' | 'ZEMA')}>
-               <SelectTrigger className="h-11 bg-white border-blue-200 shadow-none rounded-xl">
-                  <SelectValue />
-               </SelectTrigger>
-               <SelectContent>
-                  <SelectItem value="ZABS">ZABS</SelectItem>
-                  <SelectItem value="ZEMA">ZEMA</SelectItem>
-               </SelectContent>
-            </Select>
-         </div>
-         <div className="md:col-span-1 space-y-2">
-            <label className="text-[10px] font-black text-[#003d7a] uppercase ml-1">Parameter Name</label>
-            <Input className="h-11 bg-white border-blue-200 rounded-xl" placeholder="pH, Nitrate, etc..." value={newParam} onChange={e => setNewParam(e.target.value)} />
-         </div>
-         <div className="space-y-2">
-            <label className="text-[10px] font-black text-[#003d7a] uppercase ml-1">Regulatory Limit</label>
-            <Input className="h-11 bg-white border-blue-200 rounded-xl" placeholder="6.5 - 8.5" value={newValue} onChange={e => setNewValue(e.target.value)} />
-         </div>
-         <div className="space-y-2">
-            <label className="text-[10px] font-black text-[#003d7a] uppercase ml-1">Unit</label>
-            <Input className="h-11 bg-white border-blue-200 rounded-xl" placeholder="mg/L" value={newUnit} onChange={e => setNewUnit(e.target.value)} />
-         </div>
-         <Button onClick={addLimit} className="h-11 bg-[#003d7a] hover:bg-[#002a5a] rounded-xl font-black uppercase text-xs tracking-widest">
-            <Plus className="w-4 h-4 mr-2" /> Add standard 
-         </Button>
+      <div className="grid grid-cols-1 items-end gap-4 rounded-2xl border border-blue-100 bg-[#f0f9ff] p-5 md:grid-cols-5">
+        <div className="space-y-2">
+          <label className="ml-1 text-[10px] font-black uppercase text-[#003d7a]">Regulatory Body</label>
+          <Select value={newBody} onValueChange={v => setNewBody(v as 'ZABS' | 'ZEMA')}>
+            <SelectTrigger className="h-11 rounded-xl border-blue-200 bg-white shadow-none">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ZABS">ZABS</SelectItem>
+              <SelectItem value="ZEMA">ZEMA</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2 md:col-span-1">
+          <label className="ml-1 text-[10px] font-black uppercase text-[#003d7a]">Parameter Name</label>
+          <Input className="h-11 rounded-xl border-blue-200 bg-white" placeholder="pH, Nitrate, etc..." value={newParam} onChange={e => setNewParam(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <label className="ml-1 text-[10px] font-black uppercase text-[#003d7a]">Regulatory Limit</label>
+          <Input className="h-11 rounded-xl border-blue-200 bg-white" placeholder="6.5 - 8.5" value={newValue} onChange={e => setNewValue(e.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <label className="ml-1 text-[10px] font-black uppercase text-[#003d7a]">Unit</label>
+          <Input className="h-11 rounded-xl border-blue-200 bg-white" placeholder="mg/L" value={newUnit} onChange={e => setNewUnit(e.target.value)} />
+        </div>
+        <Button onClick={addLimit} className="h-11 rounded-xl bg-[#003d7a] text-xs font-black uppercase tracking-widest hover:bg-[#002a5a]">
+          <Plus className="mr-2 h-4 w-4" /> Add Standard
+        </Button>
       </div>
 
-      <div className="overflow-x-auto border rounded-2xl shadow-sm bg-white">
-         <table className="w-full text-sm">
-            <thead className="bg-gray-100 text-gray-500 font-black text-[10px] uppercase">
-               <tr>
-                  <th className="p-4 text-left">Regulatory Body</th>
-                  <th className="p-4 text-left">Parameter Name</th>
-                  <th className="p-4 text-center">Unit</th>
-                  <th className="p-4 text-right">Standard Limit</th>
-                  <th className="p-4 text-center w-20">Actions</th>
-               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-               {limits.map(l => (
-                  <tr key={l.id} className="hover:bg-gray-50 transition-colors">
-                     <td className="p-4">
-                        <span className={`px-2 py-1 rounded text-[10px] font-black tracking-widest ${l.regulatoryBody === 'ZABS' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                           {l.regulatoryBody}
-                        </span>
-                     </td>
-                     <td className="p-4 font-bold">{l.parameterName}</td>
-                     <td className="p-4 text-center font-mono text-gray-400">{l.unit || "—"}</td>
-                     <td className="p-4 text-right font-black text-[#003d7a]">{l.limitValue}</td>
-                     <td className="p-4 text-center">
-                        <button onClick={() => removeLimit(l.id)} className="text-gray-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-                     </td>
-                  </tr>
-               ))}
-               {limits.length === 0 && (
-                 <tr>
-                    <td colSpan={6} className="p-12 text-center text-gray-400 italic">No standards found. Add your first data point above.</td>
-                 </tr>
-               )}
-            </tbody>
-         </table>
+      <div className="overflow-x-auto rounded-2xl border bg-white shadow-sm">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-100 text-[10px] font-black uppercase text-gray-500">
+            <tr>
+              <th className="p-4 text-left">Regulatory Body</th>
+              <th className="p-4 text-left">Parameter Name</th>
+              <th className="p-4 text-center">Unit</th>
+              <th className="p-4 text-right">Standard Limit</th>
+              <th className="w-20 p-4 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {limits.map(limit => (
+              <tr key={limit.id} className="transition-colors hover:bg-gray-50">
+                <td className="p-4">
+                  <span className={`rounded px-2 py-1 text-[10px] font-black tracking-widest ${limit.regulatoryBody === 'ZABS' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                    {limit.regulatoryBody}
+                  </span>
+                </td>
+                <td className="p-4 font-bold">{limit.parameterName}</td>
+                <td className="p-4 text-center font-mono text-gray-400">{limit.unit || '-'}</td>
+                <td className="p-4 text-right font-black text-[#003d7a]">{limit.limitValue}</td>
+                <td className="p-4 text-center">
+                  <button onClick={() => removeLimit(limit.id)} className="text-gray-300 hover:text-red-500">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {limits.length === 0 && (
+              <tr>
+                <td colSpan={5} className="p-12 text-center italic text-gray-400">
+                  No standards found. Add your first data point above.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

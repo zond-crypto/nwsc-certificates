@@ -1,28 +1,23 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Quotation, QuotationItem, ServicePrice, Signature } from '../types';
-import { DEFAULT_QUOTATION_ITEMS } from '../constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, X, Printer, Save, FileDown, Search, Eye } from 'lucide-react';
+import { Plus, X, Printer, Save, FileDown, Eye } from 'lucide-react';
 import { toast } from 'sonner';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { PDFPreviewModal, generateQuotationPreviewHTML } from './PDFPreviewModal';
-import { buildDocumentFilename } from '../utils/fileNaming';
+import { PDFPreviewModal, QuotationPreviewDocument } from './PDFPreviewModal';
 import { generateQuotationPdf, exportQuotationCSV } from '../utils/pdfGenerators';
 import { calculateExpiryDate, formatDisplayDate, getExpiryWarningMessage } from '../utils/quotationUtils';
 
 interface Props {
   quotation: Quotation;
   setQuotation: React.Dispatch<React.SetStateAction<Quotation>>;
-  onSave: () => void;
+  onSave: () => Promise<boolean> | boolean;
   priceList: ServicePrice[];
   signatures: Signature[];
 }
 
 export function QuotationEditor({ quotation, setQuotation, onSave, priceList, signatures }: Props) {
-  const [searchTerm, setSearchTerm] = useState("");
   const [showPreview, setShowPreview] = useState(false);
   const [newSampleName, setNewSampleName] = useState('');
   const [selectedSign1Id, setSelectedSign1Id] = useState(quotation.sign1SignatureId || '');
@@ -47,12 +42,15 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
     setQuotation(prev => {
       const updated = { ...prev, [field]: value };
 
-      // Auto-calculate expiry date when date changes
       if (field === 'date' && value) {
         const issueDate = new Date(value);
         const expiryDate = calculateExpiryDate(issueDate);
         updated.expiryDate = expiryDate.toISOString();
         updated.validUntil = expiryDate.toISOString().split('T')[0];
+      }
+
+      if (field === 'validUntil' && value) {
+        updated.expiryDate = new Date(`${value}T23:59:59`).toISOString();
       }
 
       return updated;
@@ -122,26 +120,19 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
     updateTotals(newItems);
   };
 
-  const addSample = () => {
-    const sampleLabel = newSampleName.trim();
-    if (!sampleLabel) return;
+  const updateSample = (value: string) => {
     setQuotation(prev => ({
       ...prev,
-      samples: [...(prev.samples || []), sampleLabel]
-    }));
-    setNewSampleName('');
-  };
-
-  const removeSample = (index: number) => {
-    setQuotation(prev => ({
-      ...prev,
-      samples: (prev.samples || []).filter((_, idx) => idx !== index)
+      samples: value ? [value] : []
     }));
   };
 
   const formatCurrency = (val: number) => `K ${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const exportPDF = async () => {
+    const success = await onSave();
+    if (success === false) return; // Prevent download if save blocked by duplication check
+
     try {
       await generateQuotationPdf(quotation);
       toast.success('PDF downloaded successfully!');
@@ -252,29 +243,16 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
          </div>
       </div>
 
-      {/* Samples Section */}
+      {/* Single Sample Section */}
       <div className="p-6 border-b border-gray-200 bg-white">
-        <div className="flex flex-wrap items-center gap-2 mb-2">
-          <h3 className="text-sm font-black text-[#003d7a]">Sample Entries</h3>
-          <span className="text-xs text-gray-500">Manage multiple samples for this quotation</span>
-        </div>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {(quotation.samples || []).map((sample, idx) => (
-            <span key={idx} className="inline-flex items-center gap-1 rounded bg-[#e8f1ff] px-2 py-1 text-xs text-[#003d7a]">
-              {sample}
-              <button type="button" onClick={() => removeSample(idx)} className="text-red-500">×</button>
-            </span>
-          ))}
-          {(quotation.samples || []).length === 0 && <span className="text-xs text-gray-400">No samples defined yet.</span>}
-        </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 mb-2">
+          <label className="text-sm font-black text-[#003d7a]">Sample</label>
           <Input
-            value={newSampleName}
-            onChange={e => setNewSampleName(e.target.value)}
-            placeholder="Add sample description"
+            value={quotation.samples?.[0] || ''}
+            onChange={e => updateSample(e.target.value)}
+            placeholder="Enter sample description"
             className="flex-1"
           />
-          <Button size="sm" onClick={addSample} className="bg-[#003d7a] hover:bg-[#002a5a] text-xs">Add Sample</Button>
         </div>
       </div>
 
@@ -380,13 +358,24 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
             </select>
             <button className="text-xs text-[#003d7a] underline" onClick={() => applyDefaultSignature('sign1')}>Use default signature</button>
           </div>
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-[#003d7a]">Signatory 2</label>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-[#003d7a]">Prepared By</label>
             <select value={selectedSign2Id} onChange={e => applySignature('sign2', e.target.value)} className="w-full border rounded px-2 py-1 text-sm">
               <option value="">(Choose saved signature)</option>
               {signatures.map(sig => <option key={sig.id} value={sig.id}>{sig.fullName} • {sig.role}{sig.isDefault ? ' (default)' : ''}</option>)}
             </select>
-            <button className="text-xs text-[#003d7a] underline" onClick={() => applyDefaultSignature('sign2')}>Use default signature</button>
+            <div className="flex items-center gap-2">
+              <button className="text-xs text-[#003d7a] underline" onClick={() => applyDefaultSignature('sign2')}>Use default</button>
+            </div>
+            <div className="text-center pt-2">
+              {quotation.sign2SignatureImage ? (
+                <img src={quotation.sign2SignatureImage} alt="Signature" className="h-10 object-contain mx-auto mb-1" />
+              ) : (
+                <div className="h-10 border border-dashed border-gray-300 w-32 mx-auto mb-1 flex items-center justify-center text-xs text-gray-400">No Signature</div>
+              )}
+              <div className="border-t border-black w-48 mx-auto mb-2"></div>
+              <input className="w-full bg-transparent border-none outline-none text-center font-bold text-sm text-[#003d7a] print:text-black" value={quotation.sign2Name} onChange={e => handleMetaChange('sign2Name', e.target.value)} placeholder="Technician Name" />
+            </div>
           </div>
         </div>
       </div>
@@ -394,9 +383,9 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
       {/* Footer Controls */}
       <div className="p-6 bg-gray-50 border-t flex justify-end gap-3">
          <Button onClick={onSave} className="bg-[#003d7a] hover:bg-[#002a5a] font-bold"><Save className="w-4 h-4 mr-2" /> Save Quote</Button>
-         <Button onClick={() => setShowPreview(true)} className="bg-purple-600 hover:bg-purple-700 font-bold"><Eye className="w-4 h-4 mr-2" /> Preview</Button>
+         <Button onClick={() => setShowPreview(true)} className="border border-[#003d7a]/15 bg-white font-bold text-[#003d7a] hover:bg-blue-50"><Eye className="w-4 h-4 mr-2" /> Preview</Button>
          <Button onClick={exportCSV} className="bg-blue-500 hover:bg-blue-600 text-white font-black"><FileDown className="w-4 h-4 mr-2" /> Export CSV</Button>
-         <Button onClick={exportPDF} className="bg-[#e8b400] hover:bg-[#d4a200] text-[#1a1a00] font-black"><Printer className="w-4 h-4 mr-2" /> Print PDF</Button>
+         <Button onClick={exportPDF} className="bg-[#e8b400] hover:bg-[#d4a200] text-[#1a1a00] font-black"><Printer className="w-4 h-4 mr-2" /> Download PDF</Button>
       </div>
 
       {/* PDF Preview Modal */}
@@ -408,8 +397,9 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
           exportPDF();
         }}
         title={quotation.quoteNumber}
-        pdfContent={generateQuotationPreviewHTML(quotation)}
-      />
+      >
+        <QuotationPreviewDocument quotation={quotation} />
+      </PDFPreviewModal>
     </div>
   );
 }

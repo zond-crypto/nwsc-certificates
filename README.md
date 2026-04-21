@@ -9,7 +9,7 @@ A comprehensive web application for generating water analysis certificates and s
 - **PDF Export**: Download certificates and quotations as PDF with company branding
 - **PDF Preview**: Preview documents before downloading
 - **Data Management**: Save, load, and manage certificates and quotations locally
-- **Standards Integration**: Auto-update regulatory standards from ZABS and ZEMA
+- **Standards Library**: Import, export, and maintain local ZABS and ZEMA regulatory references
 - **Offline Capable**: Works completely offline once loaded
 
 ## Run Locally (Development)
@@ -52,7 +52,14 @@ npx serve dist
 ```
 Access at http://localhost:3000
 
-### Option 3: Simple Python Server
+### Option 3: Flask App Server
+```bash
+npm run build
+python app.py
+```
+Access at http://localhost:5000
+
+### Option 4: Simple Python Server
 ```bash
 npm run build
 cd dist
@@ -64,7 +71,7 @@ Access at http://localhost:3000
 
 - All certificates and quotations are stored locally in your browser's localStorage
 - No data is sent to external servers
-- Standards cache persists for 30 days
+- Imported standards can be exported and versioned as JSON files
 
 ## Technologies Used
 

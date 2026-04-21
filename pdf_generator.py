@@ -372,7 +372,7 @@ def _draw_remarks_section() -> List[Flowable]:
 
 class HRule(Flowable):
     """A thin horizontal rule, optionally coloured."""
-    def __init__(self, width=None, color=OCEAN_BLUE, thickness=0.5):
+    def __init__(self, width=None, color=NWSC_BLUE, thickness=0.5):
         super().__init__()
         self._width = width
         self.color = color
@@ -603,56 +603,17 @@ def _build_coa_table(
     return t
 
 
-def generate_coa_pdf(cert: Dict[str, Any], output_path: Optional[str] = None) -> str:
-    """Professional WAC/COA Generator with branding and color-coded sections."""
-    if not output_path:
-        no = re.sub(r"[^A-Za-z0-9\-]", "", cert.get("certNumber", "WAC"))
-        output_path = f"WAC-{no}_WaterAnalysisCertificate_Professional.pdf"
 
-    story = []
-    story.extend(_draw_title_banner("WATER ANALYSIS CERTIFICATE"))
-
-    meta_fields = [
-        ("Certificate No", cert.get("certNumber", "—")),
-        ("Date Sampled",  cert.get("dateSampled", "—")),
-        ("Client",        cert.get("client", "—")),
-        ("Date Reported", cert.get("dateReported", "—")),
-        ("Location",      cert.get("location", "—")),
-        ("Sample Type",   cert.get("sampleType", "—")),
-    ]
-    story.append(_build_meta_grid(meta_fields))
-    story.append(Spacer(1, 6*mm))
-
-    sample_type = cert.get("sampleType", "")
-    limit_hdr = "ZEMA Limit" if "Waste" in sample_type else "WHO / ZABS Limit"
-    
-    t_data = cert.get("tableData", [])
-    samples = cert.get("samples", ["Sample 1"])
-    story.append(_build_coa_table(t_data, samples, 0, limit_hdr))
-
-    story.extend(_draw_remarks_section())
-    story.append(Spacer(1, 10*mm))
-
-    story.append(SignatoryBlock(
-        cert.get("sign1Name", "Benjamin Machuta"), cert.get("sign1Title", "SHEQ Manager"),
-        cert.get("sign2Name", ""),                  cert.get("sign2Title", "Quality Assurance Officer")
-    ))
-
-    _build_document(
-        output_path, story, "CERTIFICATE",
-        title=f"NWSC Water Analysis Certificate {cert.get('certNumber', '')}",
-        author=cert.get("sign1Name", "Benjamin Machuta"),
-        subject="Certificate of Water Analysis"
-    )
-    return os.path.abspath(output_path)
-
-def generate_coa_pdf(cert: Dict[str, Any], output_path: Optional[str] = None) -> str:
+def generate_coa_pdf(cert: Dict[str, Any], output_path: Optional[str] = None) -> str | bytes:
     """Professional WAC/COA Generator with branding and color-coded sections."""
     if not output_path:
         cl = _safe_filename(cert.get("client", "Client"))
         dt = re.sub(r"\D", "", cert.get("dateReported", date.today().isoformat()))
         no = re.sub(r"[^A-Za-z0-9\-]", "", cert.get("certNumber", "WAC"))
-        output_path = f"WAC-{no}_WaterAnalysisCertificate_Professional.pdf"
+        # If output_path is still None, _build_document will return bytes
+        filename = f"WAC-{no}_WaterAnalysisCertificate_Professional.pdf"
+    else:
+        filename = output_path
 
     story = []
     
@@ -690,20 +651,21 @@ def generate_coa_pdf(cert: Dict[str, Any], output_path: Optional[str] = None) ->
     ))
 
     # 6. Build with Metadata
-    _build_document(
+    return _build_document(
         output_path, story, "CERTIFICATE",
         title=f"NWSC Water Analysis Certificate {cert.get('certNumber', '')}",
         author=cert.get("sign1Name", "NWSC SHEQ Department"),
         subject="Certificate of Water Analysis"
     )
-    return os.path.abspath(output_path)
 
 
-def generate_quotation_pdf(quot: Dict[str, Any], output_path: Optional[str] = None) -> str:
+def generate_quotation_pdf(quot: Dict[str, Any], output_path: Optional[str] = None) -> str | bytes:
     """Professional Quotation Generator with branding and terms."""
     if not output_path:
         no = re.sub(r"[^A-Za-z0-9\-]", "", quot.get("quoteNumber", "QT"))
-        output_path = f"QT-{no}_Quotation_Professional.pdf"
+        filename = f"QT-{no}_Quotation_Professional.pdf"
+    else:
+        filename = output_path
 
     story = []
     story.extend(_draw_title_banner("QUOTATION"))
@@ -808,23 +770,23 @@ def generate_quotation_pdf(quot: Dict[str, Any], output_path: Optional[str] = No
         "",                                             "Authorized Signatory"
     ))
 
-    _build_document(
+    # 6. Build with Metadata
+    return _build_document(
         output_path, story, "QUOTATION",
         title=f"NWSC Quotation {quot.get('quoteNumber', '')}",
         author=quot.get("preparedByName", "Benjamin Machuta"),
         subject="Water Analysis Quotation"
     )
-    return os.path.abspath(output_path)
 
 
 def _build_document(
-    output_path: str,
+    output_path: Optional[str],
     story: list,
     doc_type_label: str,
     title: str = "NWSC Document",
     author: str = "NWSC SHEQ Department",
     subject: str = "Water Analysis",
-) -> None:
+) -> str | bytes:
     """Two-pass build to set metadata and page numbers."""
     def _render(dest):
         doc = BaseDocTemplate(
@@ -844,8 +806,17 @@ def _build_document(
         doc.build(story)
         return doc
     
-    _render(io.BytesIO()) # Pass 1
-    _render(output_path) # Pass 2
+    # Pass 1: Potential page count / geometry calculation
+    _render(io.BytesIO())
+    
+    # Pass 2: Final render
+    if output_path is None:
+        buf = io.BytesIO()
+        _render(buf)
+        return buf.getvalue()
+    else:
+        _render(output_path)
+        return os.path.abspath(output_path)
 
 
 if __name__ == "__main__":

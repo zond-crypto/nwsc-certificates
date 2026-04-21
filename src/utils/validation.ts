@@ -126,6 +126,23 @@ export function validateQuotation(quote: Quotation): ValidationError[] {
     });
   }
 
+  if (quote.date && quote.validUntil) {
+    const issueDate = new Date(`${quote.date}T00:00:00`);
+    const validUntilDate = new Date(`${quote.validUntil}T00:00:00`);
+
+    if (Number.isNaN(issueDate.getTime()) || Number.isNaN(validUntilDate.getTime())) {
+      errors.push({
+        field: 'validUntil',
+        message: 'Quotation dates must be valid calendar dates'
+      });
+    } else if (validUntilDate < issueDate) {
+      errors.push({
+        field: 'validUntil',
+        message: 'Validity date cannot be earlier than the quotation date'
+      });
+    }
+  }
+
   if (!quote.items || quote.items.length === 0) {
     errors.push({
       field: 'items',
@@ -170,6 +187,14 @@ export function validateQuotation(quote: Quotation): ValidationError[] {
       });
     }
   });
+
+  const hasBillableItem = quote.items.some(item => item.quantity > 0 && item.unitPrice > 0);
+  if (!hasBillableItem) {
+    errors.push({
+      field: 'items',
+      message: 'At least one quotation item must have a quantity and unit price'
+    });
+  }
 
   // Check totals
   if (quote.subtotal === undefined || quote.subtotal < 0) {
