@@ -1,30 +1,39 @@
 import { Parameter, QuotationItem, RegulatoryLimit } from './types';
 
 export const DEFAULT_PARAMS: Parameter[] = [
-  { id: 'p1', name: 'pH', unit: '', limit: '6.5 - 8.5', results: [''], numeric_limit_low: 6.5, numeric_limit_high: 8.5 },
-  { id: 'p2', name: 'Turbidity', unit: 'NTU', limit: '<= 1', results: [''], numeric_limit_high: 1 },
-  { id: 'p3', name: 'Colour', unit: 'TCU', limit: '<= 15', results: [''], numeric_limit_high: 15 },
-  { id: 'p4', name: 'Temperature', unit: 'deg C', limit: '< 25', results: [''], numeric_limit_high: 25 },
-  { id: 'p5', name: 'TDS', unit: 'mg/L', limit: '<= 1000', results: [''], numeric_limit_high: 1000 },
-  { id: 'p6', name: 'TSS', unit: 'mg/L', limit: '<= 500', results: [''], numeric_limit_high: 500 },
-  { id: 'p7', name: 'EC', unit: 'uS/cm', limit: '<= 1500', results: [''], numeric_limit_high: 1500 },
-  { id: 'p8', name: 'Free Chlorine', unit: 'mg/L', limit: '0.2 - 0.5', results: [''], numeric_limit_low: 0.2, numeric_limit_high: 0.5 },
-  { id: 'p9', name: 'Total Hardness', unit: 'mg/L', limit: '<= 500', results: [''], numeric_limit_high: 500 },
-  { id: 'p10', name: 'Nitrate (NO3)', unit: 'mg/L', limit: '<= 50', results: [''], numeric_limit_high: 50 },
-  { id: 'p11', name: 'Nitrite (NO2)', unit: 'mg/L', limit: '<= 3', results: [''], numeric_limit_high: 3 },
-  { id: 'p12', name: 'Fluoride', unit: 'mg/L', limit: '<= 1.5', results: [''], numeric_limit_high: 1.5 },
-  { id: 'p13', name: 'Iron (Fe)', unit: 'mg/L', limit: '<= 0.3', results: [''], numeric_limit_high: 0.3 },
-  { id: 'p14', name: 'Manganese (Mn)', unit: 'mg/L', limit: '<= 0.1', results: [''], numeric_limit_high: 0.1 },
-  { id: 'p15', name: 'Copper (Cu)', unit: 'mg/L', limit: '<= 2.0', results: [''], numeric_limit_high: 2.0 },
-  { id: 'p16', name: 'Zinc (Zn)', unit: 'mg/L', limit: '<= 3.0', results: [''], numeric_limit_high: 3.0 },
-  { id: 'p17', name: 'Chloride (Cl-)', unit: 'mg/L', limit: '<= 250', results: [''], numeric_limit_high: 250 },
-  { id: 'p18', name: 'Sulphate (SO4)', unit: 'mg/L', limit: '<= 250', results: [''], numeric_limit_high: 250 },
-  { id: 'p19', name: 'Alkalinity', unit: 'mg/L', limit: '<= 500', results: [''], numeric_limit_high: 500 },
-  { id: 'p20', name: 'Calcium (Ca)', unit: 'mg/L', limit: '<= 200', results: [''], numeric_limit_high: 200 },
-  { id: 'p21', name: 'Magnesium (Mg)', unit: 'mg/L', limit: '<= 150', results: [''], numeric_limit_high: 150 },
-  { id: 'p22', name: 'Total Coliforms (T/Coli)', unit: 'CFU/100mL', limit: '0', results: [''], numeric_limit_high: 0, bio: true },
-  { id: 'p23', name: 'Faecal Coliforms (F/Coli)', unit: 'CFU/100mL', limit: '0', results: [''], numeric_limit_high: 0, bio: true },
-  { id: 'p24', name: 'HPC (22 deg C)', unit: 'CFU/mL', limit: '<= 100', results: [''], numeric_limit_high: 100 },
+  // Physical Parameters
+  { id: 'p1', section: 'Physical Parameters', name: 'pH', unit: '', limit: '6.5 - 8.5', results: [''], numeric_limit_low: 6.5, numeric_limit_high: 8.5 },
+  { id: 'p2', section: 'Physical Parameters', name: 'Turbidity', unit: 'NTU', limit: '<= 1', results: [''], numeric_limit_high: 1 },
+  { id: 'p3', section: 'Physical Parameters', name: 'Colour', unit: 'TCU', limit: '<= 15', results: [''], numeric_limit_high: 15 },
+  { id: 'p4', section: 'Physical Parameters', name: 'Temperature', unit: 'deg C', limit: '< 25', results: [''], numeric_limit_high: 25 },
+  { id: 'p5', section: 'Physical Parameters', name: 'TDS', unit: 'mg/L', limit: '<= 1000', results: [''], numeric_limit_high: 1000 },
+  { id: 'p6', section: 'Physical Parameters', name: 'TSS', unit: 'mg/L', limit: '<= 500', results: [''], numeric_limit_high: 500 },
+  { id: 'p7', section: 'Physical Parameters', name: 'EC', unit: 'uS/cm', limit: '<= 1500', results: [''], numeric_limit_high: 1500 },
+  
+  // Chemical Parameters
+  { id: 'p8', section: 'Chemical Parameters', name: 'Free Chlorine', unit: 'mg/L', limit: '0.2 - 0.5', results: [''], numeric_limit_low: 0.2, numeric_limit_high: 0.5 },
+  { id: 'p9', section: 'Chemical Parameters', name: 'Total Hardness', unit: 'mg/L', limit: '<= 500', results: [''], numeric_limit_high: 500 },
+  { id: 'p10', section: 'Chemical Parameters', name: 'Nitrate (NO3)', unit: 'mg/L', limit: '<= 50', results: [''], numeric_limit_high: 50 },
+  { id: 'p11', section: 'Chemical Parameters', name: 'Nitrite (NO2)', unit: 'mg/L', limit: '<= 3', results: [''], numeric_limit_high: 3 },
+  { id: 'p12', section: 'Chemical Parameters', name: 'Fluoride', unit: 'mg/L', limit: '<= 1.5', results: [''], numeric_limit_high: 1.5 },
+  
+  // Heavy Metals
+  { id: 'p13', section: 'Heavy Metals', name: 'Iron (Fe)', unit: 'mg/L', limit: '<= 0.3', results: [''], numeric_limit_high: 0.3 },
+  { id: 'p14', section: 'Heavy Metals', name: 'Manganese (Mn)', unit: 'mg/L', limit: '<= 0.1', results: [''], numeric_limit_high: 0.1 },
+  { id: 'p15', section: 'Heavy Metals', name: 'Copper (Cu)', unit: 'mg/L', limit: '<= 2.0', results: [''], numeric_limit_high: 2.0 },
+  { id: 'p16', section: 'Heavy Metals', name: 'Zinc (Zn)', unit: 'mg/L', limit: '<= 3.0', results: [''], numeric_limit_high: 3.0 },
+  
+  // More Chemical
+  { id: 'p17', section: 'Chemical Parameters', name: 'Chloride (Cl-)', unit: 'mg/L', limit: '<= 250', results: [''], numeric_limit_high: 250 },
+  { id: 'p18', section: 'Chemical Parameters', name: 'Sulphate (SO4)', unit: 'mg/L', limit: '<= 250', results: [''], numeric_limit_high: 250 },
+  { id: 'p19', section: 'Chemical Parameters', name: 'Alkalinity', unit: 'mg/L', limit: '<= 500', results: [''], numeric_limit_high: 500 },
+  { id: 'p20', section: 'Chemical Parameters', name: 'Calcium (Ca)', unit: 'mg/L', limit: '<= 200', results: [''], numeric_limit_high: 200 },
+  { id: 'p21', section: 'Chemical Parameters', name: 'Magnesium (Mg)', unit: 'mg/L', limit: '<= 150', results: [''], numeric_limit_high: 150 },
+  
+  // Microbiological Parameters
+  { id: 'p22', section: 'Microbiological Parameters', name: 'Total Coliforms (T/Coli)', unit: 'CFU/100mL', limit: '0', results: [''], numeric_limit_high: 0, bio: true },
+  { id: 'p23', section: 'Microbiological Parameters', name: 'Faecal Coliforms (F/Coli)', unit: 'CFU/100mL', limit: '0', results: [''], numeric_limit_high: 0, bio: true },
+  { id: 'p24', section: 'Microbiological Parameters', name: 'HPC (22 deg C)', unit: 'CFU/mL', limit: '<= 100', results: [''], numeric_limit_high: 100 },
 ];
 
 export const PARAMETER_PRICES = [

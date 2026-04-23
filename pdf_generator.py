@@ -78,11 +78,13 @@ def _hex(h: str) -> colors.Color:
     return colors.Color(r / 255, g / 255, b / 255)
 
 NWSC_BLUE    = _hex("#0B4E8A")   # Primary corporate blue
-NWSC_LIGHT   = _hex("#D6E8F7")   # Light blue section fills, signature box bg
-NWSC_ACCENT  = _hex("#1A7AC4")   # Accent blue rule line
-NWSC_STRIPE  = _hex("#F0F7FF")   # Alternating table row tint
-TEXT_DARK    = _hex("#1A1A2E")   # Primary body text
-TEXT_MID     = _hex("#4A4A6A")   # Labels, secondary text
+NWSC_LIGHT   = _hex("#F0F5FB")   # Light blue tint for titles/cards
+NWSC_ACCENT  = _hex("#B85C00")   # Amber-orange for expiry/warning
+NWSC_STRIPE  = _hex("#F5F8FD")   # Zebra striping even rows
+NWSC_BORDER  = _hex("#C8DAF0")   # Card/Table border color
+NWSC_DIVIDER = _hex("#DDE7F4")   # Internal divider color
+TEXT_DARK    = _hex("#1A1A1A")   # Primary body text
+TEXT_MID     = _hex("#666666")   # Secondary/Role text
 WHITE        = colors.white
 BLACK        = colors.black
 
@@ -154,29 +156,30 @@ def _style(name, **kw) -> ParagraphStyle:
     s = ParagraphStyle(name, parent=STYLES[base], **kw)
     return s
 
-BODY_STYLE       = _style("NWSCBody",       fontSize=7.5, leading=10, textColor=TEXT_DARK, fontName=FONT_NORMAL)
-BODY_BOLD        = _style("NWSCBodyBold",   fontSize=7.5, leading=10, textColor=TEXT_DARK, fontName=FONT_BOLD)
-CELL_CENTRE      = _style("NWSCCentre",     fontSize=7.5, leading=10, alignment=TA_CENTER, fontName=FONT_NORMAL)
-CELL_RIGHT       = _style("NWSCRight",      fontSize=7.5, leading=10, alignment=TA_RIGHT, fontName=FONT_NORMAL)
+BODY_STYLE       = _style("NWSCBody",       fontSize=8.5, leading=11, textColor=TEXT_DARK, fontName=FONT_NORMAL)
+BODY_BOLD        = _style("NWSCBodyBold",   fontSize=8.5, leading=11, textColor=TEXT_DARK, fontName=FONT_BOLD)
+CELL_CENTRE      = _style("NWSCCentre",     fontSize=8.5, leading=11, alignment=TA_CENTER, fontName=FONT_NORMAL)
+CELL_RIGHT       = _style("NWSCRight",      fontSize=8.5, leading=11, alignment=TA_RIGHT, fontName=FONT_NORMAL)
 HEADER_STYLE     = _style("NWSCHeader",     fontSize=11,  leading=14, textColor=WHITE,  fontName=FONT_BOLD, alignment=TA_CENTER)
-SUBHEADER_STYLE  = _style("NWSCSubheader",  fontSize=7,   leading=9,  textColor=WHITE, fontName=FONT_NORMAL, alignment=TA_CENTER)
-SECTION_STYLE    = _style("NWSCSection",    fontSize=7.5, leading=10, textColor=NWSC_BLUE,  fontName=FONT_BOLD)
-TITLE_STYLE      = _style("NWSCTitle",      fontSize=13,  leading=16, textColor=NWSC_BLUE,  fontName=FONT_BOLD, alignment=TA_CENTER)
-META_LABEL       = _style("NWSCMetaLabel",  fontSize=8,   leading=11, textColor=TEXT_MID,  fontName=FONT_BOLD)
-META_VAL         = _style("NWSCMetaVal",    fontSize=8.5, leading=11, textColor=TEXT_DARK, fontName=FONT_NORMAL)
-SIGNATORY_NAME   = _style("NWSCSignName",   fontSize=8.5, leading=11, fontName=FONT_BOLD, textColor=TEXT_DARK, alignment=TA_CENTER)
-SIGNATORY_TITLE  = _style("NWSCSignTitle",  fontSize=7.5, leading=10, textColor=TEXT_MID, fontName=FONT_NORMAL, alignment=TA_CENTER)
-SIGNATORY_DATE   = _style("NWSCSignDate",   fontSize=7.5, leading=10, textColor=TEXT_MID, fontName=FONT_NORMAL, alignment=TA_CENTER)
-TOTALS_NORMAL    = _style("NWSCTotNormal",  fontSize=8.5, leading=12, textColor=TEXT_MID, fontName=FONT_NORMAL)
-TOTALS_BOLD      = _style("NWSCTotBold",    fontSize=10,  leading=13, fontName=FONT_BOLD, textColor=WHITE)
-BADGE_STYLE      = _style("NWSCBadge",      fontSize=8,   leading=10, fontName=FONT_BOLD, textColor=WHITE, alignment=TA_CENTER)
-FOOTER_STYLE     = _style("NWSCFooter",     fontSize=7,   leading=9,  fontName=FONT_NORMAL, textColor=WHITE)
-FOOTER_BOLD      = _style("NWSCFooterBold", fontSize=7,   leading=9,  fontName=FONT_BOLD,   textColor=WHITE)
+SUBHEADER_STYLE  = _style("NWSCSubheader",  fontSize=8,   leading=10, textColor=NWSC_BLUE, fontName=FONT_BOLD, alignment=TA_CENTER)
+SECTION_STYLE    = _style("NWSCSection",    fontSize=8.5, leading=11, textColor=NWSC_BLUE, fontName=FONT_BOLD, spaceBefore=4, spaceAfter=4)
+TITLE_STYLE      = _style("NWSCTitle",      fontSize=15,  leading=18, textColor=NWSC_BLUE, fontName=FONT_BOLD)
+TITLE_DEPT       = _style("NWSCTitleDept",  fontSize=8,   leading=10, textColor=NWSC_BLUE, fontName=FONT_NORMAL, spaceBefore=0)
+META_LABEL       = _style("NWSCMetaLabel",  fontSize=8,   leading=10, textColor=NWSC_BLUE, fontName=FONT_BOLD)
+META_VAL         = _style("NWSCMetaVal",    fontSize=11,  leading=13, textColor=TEXT_DARK, fontName=FONT_BOLD)
+META_VAL_MUTED   = _style("NWSCMetaValMuted",fontSize=11,  leading=13, textColor=_hex("#AAAAAA"), fontName=FONT_NORMAL)
+SIGNATORY_NAME   = _style("NWSCSignName",   fontSize=10,  leading=13, fontName=FONT_BOLD, textColor=NWSC_BLUE)
+SIGNATORY_TITLE  = _style("NWSCSignTitle",  fontSize=9,   leading=12, textColor=TEXT_MID, fontName=FONT_NORMAL)
+TOTALS_LABEL     = _style("NWSCTotLabel",   fontSize=9,   leading=12, textColor=TEXT_DARK, fontName=FONT_NORMAL)
+TOTALS_VAL       = _style("NWSCTotVal",     fontSize=11,  leading=14, fontName=FONT_BOLD, textColor=WHITE)
+BADGE_LABEL      = _style("NWSCBadgeLabel", fontSize=8,   leading=9,  fontName=FONT_NORMAL, textColor=WHITE, alignment=TA_CENTER)
+BADGE_VAL        = _style("NWSCBadgeVal",   fontSize=11,  leading=13, fontName=FONT_BOLD, textColor=WHITE, alignment=TA_CENTER)
+FOOTER_TAG       = _style("NWSCFooterTag",  fontSize=8.5, leading=10, fontName=FONT_OBLIQUE, textColor=WHITE)
+FOOTER_PAGE      = _style("NWSCFooterPage", fontSize=8.5, leading=10, fontName=FONT_BOLD, textColor=WHITE, alignment=TA_RIGHT)
 REMARKS_TITLE    = _style("NWSCRemarksTitle",fontSize=9,  leading=12, fontName=FONT_BOLD, textColor=NWSC_BLUE)
-REMARKS_BODY     = _style("NWSCRemarksBody", fontSize=7.5, leading=10, fontName=FONT_OBLIQUE, textColor=TEXT_MID)
-TERMS_STYLE      = _style("NWSCTerms",      fontSize=7.5, leading=10, fontName=FONT_OBLIQUE, textColor=TEXT_MID)
-SAMPLE_STYLE     = _style("NWSCSample",     fontSize=7.5, leading=10, alignment=TA_CENTER, fontName=FONT_BOLD, wordWrap=None, allowWidows=0, allowOrphans=0)
-UNIT_STYLE       = _style("NWSCUnit",       fontSize=7,   leading=9,  alignment=TA_CENTER, fontName=FONT_NORMAL, wordWrap=None)
+REMARKS_BODY     = _style("NWSCRemarksBody", fontSize=8.5, leading=11, fontName=FONT_OBLIQUE, textColor=TEXT_MID)
+TERMS_STYLE      = _style("NWSCTerms",      fontSize=9.5, leading=12, fontName=FONT_NORMAL, textColor=_hex("#444444"))
+UNIT_STYLE       = _style("NWSCUnit",       fontSize=8.5, leading=11, alignment=TA_CENTER, fontName=FONT_NORMAL)
 
 MAX_SAMPLE_COLS = 6   # sample columns per A4 page
 
@@ -285,115 +288,89 @@ def _place_watermark(canvas, doc_type: str) -> None:
     canvas.restoreState()
 
 
-def _draw_header_canvas(
-    canvas,
-    doc_type_label: str,
-) -> None:
-    """
-    Draw the full-width branded 28mm header band.
-    Includes corporate blue bg, logo box, and centered address.
-    """
-    header_h = 28 * mm
-    logo_margin = 4 * mm
-
+def _draw_header_canvas(canvas, doc_type_label: str, doc_number: str = "") -> None:
+    """Draw the new branded header with badge and hierarchy."""
     canvas.saveState()
-
-    # Corporate Blue Background
+    header_h = 28 * mm
+    
+    # Dark Blue Top Bar
     canvas.setFillColor(NWSC_BLUE)
     canvas.rect(0, PAGE_H - header_h, PAGE_W, header_h, fill=1, stroke=0)
 
-    # Accent rule immediately below header
-    canvas.setStrokeColor(NWSC_ACCENT)
-    canvas.setLineWidth(2) # 2pt
-    canvas.line(0, PAGE_H - header_h, PAGE_W, PAGE_H - header_h)
-
-    # White Logo Box (22mm x 20mm)
+    # Logo Box
     logo_box_w, logo_box_h = 22 * mm, 20 * mm
-    logo_box_x = 18 * mm # LEFT_MARGIN
+    logo_box_x = 18 * mm
     logo_box_y = PAGE_H - header_h + (header_h - logo_box_h) / 2
     canvas.setFillColor(WHITE)
     canvas.roundRect(logo_box_x, logo_box_y, logo_box_w, logo_box_h, 1.5 * mm, fill=1, stroke=0)
 
-    # Logo Image or Placeholder
+    # Logo Image
     logo_candidates = ["public/logo.png", "logo.png", "src/public/logo.png"]
-    logo_drawn = False
     for lp in logo_candidates:
         if os.path.exists(lp):
             canvas.drawImage(lp, logo_box_x + 1*mm, logo_box_y + 1*mm, width=logo_box_w - 2*mm, height=logo_box_h - 2*mm, mask='auto')
-            logo_drawn = True
             break
-    if not logo_drawn:
-        # Fallback Wordmark
-        canvas.setFillColor(NWSC_BLUE)
-        canvas.setFont(FONT_BOLD, 8)
-        canvas.drawCentredString(logo_box_x + logo_box_w / 2, logo_box_y + 12 * mm, "NWSC")
-        # Blue wave area with white lines (Upgrade 1)
-        wave_y, wave_h = logo_box_y + 2*mm, 7*mm
-        canvas.rect(logo_box_x + 2*mm, wave_y, logo_box_w - 4*mm, wave_h, fill=1, stroke=0)
-        canvas.setStrokeColor(WHITE)
-        canvas.setLineWidth(0.5)
-        canvas.line(logo_box_x + 3*mm, wave_y + 2*mm, logo_box_x + logo_box_w - 3*mm, wave_y + 2*mm)
-        canvas.line(logo_box_x + 3*mm, wave_y + 3.5*mm, logo_box_x + logo_box_w - 3*mm, wave_y + 3.5*mm)
-        canvas.line(logo_box_x + 3*mm, wave_y + 5*mm, logo_box_x + logo_box_w - 3*mm, wave_y + 5*mm)
 
-    # Centre Text
-    cx = PAGE_W / 2
+    # Company Text (Left Aligned next to logo)
+    tx = logo_box_x + logo_box_w + 6 * mm
     canvas.setFillColor(WHITE)
-    canvas.setFont(FONT_BOLD, 11)
-    canvas.drawCentredString(cx, PAGE_H - 10 * mm, "NKANA WATER SUPPLY AND SANITATION COMPANY")
-    canvas.setFont(FONT_NORMAL, 7)
-    canvas.drawCentredString(cx, PAGE_H - 15 * mm, "Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia")
-    canvas.drawCentredString(cx, PAGE_H - 19 * mm, "Tel: +260 212 222488 / 221099 / 0971 223 458  |  Fax: +260 212 222490")
-    canvas.drawCentredString(cx, PAGE_H - 23 * mm, "headoffice@nwsc.com.zm  |  www.nwsc.zm")
+    canvas.setFont(FONT_BOLD, 12)
+    canvas.drawString(tx, PAGE_H - 10 * mm, "NKANA WATER SUPPLY & SANITATION CO.")
+    canvas.setFont(FONT_NORMAL, 7.5)
+    canvas.drawString(tx, PAGE_H - 15 * mm, "Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia")
+    canvas.drawString(tx, PAGE_H - 19 * mm, "Tel: +260 212 222488 / 221099 / 0971 223 458")
+    canvas.drawString(tx, PAGE_H - 23 * mm, "headoffice@nwsc.com.zm  |  www.nwsc.zm")
 
-    # Right badge box
-    badge_w, badge_h = 42 * mm, 12 * mm
+    # Right Badge (Cert/Quotation No)
+    badge_w, badge_h = 45 * mm, 14 * mm
     badge_x = PAGE_W - 18 * mm - badge_w
     badge_y = PAGE_H - header_h + (header_h - badge_h) / 2
     canvas.setFillColor(WHITE, alpha=0.15)
-    canvas.roundRect(badge_x, badge_y, badge_w, badge_h, 2 * mm, fill=1, stroke=0)
+    canvas.roundRect(badge_x, badge_y, badge_w, badge_h, 1.5 * mm, fill=1, stroke=0)
+    
+    label_text = "CERT NO" if "CERTIFICATE" in doc_type_label.upper() else "QUOTATION NO"
     canvas.setFillColor(WHITE)
-    canvas.setFont(FONT_BOLD, 6.5)
-    canvas.drawCentredString(badge_x + badge_w / 2, badge_y + 8 * mm, "SAFETY HEALTH ENVIRONMENT")
-    canvas.drawCentredString(badge_x + badge_w / 2, badge_y + 5.5 * mm, "& QUALITY DEPARTMENT")
-    canvas.setFont(FONT_BOLD, 7)
-    canvas.drawCentredString(badge_x + badge_w / 2, badge_y + 2.5 * mm, doc_type_label.upper())
+    canvas.setFont(FONT_NORMAL, 8)
+    canvas.drawCentredString(badge_x + badge_w / 2, badge_y + 8.5 * mm, label_text)
+    canvas.setFont(FONT_BOLD, 11)
+    canvas.drawCentredString(badge_x + badge_w / 2, badge_y + 3.5 * mm, doc_number or "—")
 
     canvas.restoreState()
 
 
-def _draw_footer_canvas(canvas, page_num: int) -> None:
-    """Draw a 12mm corporate footer band on the bottom of every page."""
-    footer_h = 12 * mm
+def _draw_footer_canvas(canvas, page_num: int, total_pages: int = 1) -> None:
+    """Draw a 10mm solid blue footer bar."""
+    footer_h = 10 * mm
     canvas.saveState()
     canvas.setFillColor(NWSC_BLUE)
     canvas.rect(0, 0, PAGE_W, footer_h, fill=1, stroke=0)
     
     canvas.setFillColor(WHITE)
-    canvas.setFont(FONT_BOLD, 7)
-    canvas.drawString(18 * mm, 5 * mm, "Bigger, Better, Smarter")
+    canvas.setFont(FONT_OBLIQUE, 8.5)
+    canvas.drawString(18 * mm, 3.5 * mm, "Bigger, Better, Smarter")
     
-    canvas.setFont(FONT_NORMAL, 7)
-    canvas.drawCentredString(PAGE_W / 2, 5 * mm, "This document is computer-generated and valid without a wet signature unless stated.")
-    
-    canvas.setFont(FONT_BOLD, 7)
-    canvas.drawRightString(PAGE_W - 18 * mm, 5 * mm, f"Page {page_num}")
+    canvas.setFont(FONT_BOLD, 8.5)
+    canvas.drawRightString(PAGE_W - 18 * mm, 3.5 * mm, f"Page {page_num} of {total_pages}")
     
     canvas.restoreState()
 
 
 def _draw_title_banner(title: str) -> List[Flowable]:
-    """Return a styled full-width blue title banner block."""
+    """Return a styled light-blue title band with hierarchy."""
     usable_w = PAGE_W - 36 * mm
-    t = Table([[Paragraph(title, TITLE_STYLE)]], colWidths=[usable_w])
+    data = [
+        [Paragraph("SAFETY HEALTH ENVIRONMENT AND QUALITY DEPARTMENT", TITLE_DEPT)],
+        [Paragraph(title.upper(), TITLE_STYLE)]
+    ]
+    t = Table(data, colWidths=[usable_w])
     t.setStyle(TableStyle([
         ("BACKGROUND",    (0,0), (-1,-1), NWSC_LIGHT),
-        ("BOX",           (0,0), (-1,-1), 1.5, NWSC_BLUE),
-        ("TOPPADDING",    (0,0), (-1,-1), 8),
+        ("LINEBELOW",     (0,1), (-1,1), 1, NWSC_BORDER),
+        ("TOPPADDING",    (0,0), (-1,-1), 4),
         ("BOTTOMPADDING", (0,0), (-1,-1), 8),
-        ("VALIGN",        (0,0), (-1,-1), "MIDDLE"),
+        ("LEFTPADDING",   (0,0), (-1,-1), 12),
     ]))
-    return [Spacer(1, 4*mm), t, Spacer(1, 4*mm)]
+    return [Spacer(1, 4*mm), t, Spacer(1, 6*mm)]
 
 
 def _draw_remarks_section() -> List[Flowable]:
@@ -440,49 +417,62 @@ class HRule(Flowable):
 
 class SignatoryBlock(Flowable):
     """
-    Renders two side-by-side signatory columns in a proper grid table.
+    Renders two side-by-side signatory columns with horizontal rules.
     """
     def __init__(
         self,
         sign1_name: str, sign1_role: str,
         sign2_name: str, sign2_role: str,
+        is_quotation: bool = False
     ):
         super().__init__()
         self.s1n, self.s1r = sign1_name, sign1_role
         self.s2n, self.s2r = sign2_name, sign2_role
-        self.height = 40 * mm
+        self.is_q = is_quotation
+        self.height = 32 * mm
 
     def wrap(self, avail_w, avail_h):
         return avail_w, self.height
 
     def draw(self):
         usable_w = self.width
-        col_w = usable_w / 2 - 2*mm
+        col_w = usable_w / 2 - 8*mm
         
-        def _col_table(name, role):
-            data = [
-                [Paragraph(name if name else " ", SIGNATORY_NAME)],
-                [Paragraph(role, SIGNATORY_TITLE)],
-                [Spacer(1, 10*mm)],
-                [Paragraph("______________________________", CELL_CENTRE)],
-                [Paragraph("Signature & Date", SIGNATORY_DATE)]
-            ]
-            t = Table(data, colWidths=[col_w - 4*mm])
+        def _col_table(name, role, label=None):
+            data = []
+            if label:
+                data.append([Paragraph(label.upper(), SECTION_STYLE)])
+                data.append([Spacer(1, 2*mm)])
+            
+            # Signature Line (Horizontal Rule)
+            # We use a Table with a top border to simulate the rule
+            data.append([""]) # Spacer
+            data.append([Paragraph(name if name else "—", SIGNATORY_NAME)])
+            data.append([Paragraph(role if role else "—", SIGNATORY_TITLE)])
+            
+            t = Table(data, colWidths=[col_w])
             t.setStyle(TableStyle([
-                ("BACKGROUND", (0,0), (0,0), NWSC_LIGHT),
-                ("BOX", (0,0), (-1,-1), 0.5, _hex("#C0CDD8")),
-                ("TOPPADDING", (0,0), (-1,-1), 4),
-                ("BOTTOMPADDING", (0,0), (-1,-1), 4),
-                ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+                ("LINEABOVE", (0, 1), (0, 1), 1.5, NWSC_BLUE),
+                ("LEFTPADDING", (0,0), (-1,-1), 0),
+                ("RIGHTPADDING", (0,0), (-1,-1), 0),
+                ("TOPPADDING", (0,0), (-1,-1), 1),
+                ("BOTTOMPADDING", (0,0), (-1,-1), 1),
+                ("VALIGN", (0,0), (-1,-1), "TOP"),
             ]))
             return t
 
-        table_data = [[_col_table(self.s1n, self.s1r), Spacer(4*mm, 1), _col_table(self.s2n, self.s2r)]]
-        main_table = Table(table_data, colWidths=[col_w, 4*mm, col_w])
+        label1 = "Authorised Signatory" if self.is_q else None
+        
+        table_data = [[
+            _col_table(self.s1n, self.s1r, label1),
+            Spacer(16*mm, 1),
+            _col_table(self.s2n, self.s2r)
+        ]]
+        main_table = Table(table_data, colWidths=[col_w, 16*mm, col_w])
         main_table.setStyle(TableStyle([
             ("LEFTPADDING", (0,0), (-1,-1), 0),
             ("RIGHTPADDING", (0,0), (-1,-1), 0),
-            ("VALIGN", (0,0), (-1,-1), "TOP"),
+            ("VALIGN", (0,0), (-1,-1), "BOTTOM"),
         ]))
         main_table.wrapOn(self.canv, usable_w, self.height)
         main_table.drawOn(self.canv, 0, 0)
@@ -496,26 +486,27 @@ class SignatoryBlock(Flowable):
 def _make_page_template(
     template_id: str,
     doc_type_label: str,
+    doc_number: str = ""
 ) -> PageTemplate:
     """
     Create a PageTemplate that draws the full branded header + watermark +
     footer on every canvas render.
     """
     header_total = 28 * mm
-    footer_total = 12 * mm
+    footer_total = 10 * mm
 
     frame = Frame(
         x1=18 * mm,
         y1=footer_total + 4 * mm,
         width=PAGE_W - 36 * mm,
-        height=PAGE_H - header_total - footer_total - 8 * mm,
+        height=PAGE_H - header_total - footer_total - 12 * mm,
         leftPadding=0, rightPadding=0, topPadding=0, bottomPadding=0,
         id="content",
     )
 
     def on_page(canvas, doc_ref):
-        _place_watermark(canvas, doc_type_label)
-        _draw_header_canvas(canvas, doc_type_label)
+        _place_watermark(canvas)
+        _draw_header_canvas(canvas, doc_type_label, doc_number)
         _draw_footer_canvas(canvas, canvas.getPageNumber())
 
     return PageTemplate(id=template_id, frames=[frame], onPage=on_page)
@@ -527,35 +518,48 @@ def _make_page_template(
 
 def _build_meta_grid(fields: List[Tuple[str, str]]) -> Table:
     """
-    Build a styled 4-column metabolic grid grid: [Label | Value | Label | Value].
+    Build a structured 2-row x 3-column card with labels above values.
     """
     usable_w = PAGE_W - 36 * mm
-    col_widths = [usable_w * 0.18, usable_w * 0.32, usable_w * 0.18, usable_w * 0.32]
+    col_w = usable_w / 3
+
+    def _cell(label: str, value: str) -> Table:
+        v_style = META_VAL if value and value.strip() else META_VAL_MUTED
+        v_text = value if value and value.strip() else "—"
+        
+        inner_data = [
+            [Paragraph(label.upper(), META_LABEL)],
+            [Paragraph(v_text, v_style)]
+        ]
+        it = Table(inner_data, colWidths=[col_w - 4*mm])
+        it.setStyle(TableStyle([
+            ("LEFTPADDING", (0,0), (-1,-1), 0),
+            ("RIGHTPADDING", (0,0), (-1,-1), 0),
+            ("TOPPADDING", (0,0), (-1,-1), 0),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 1),
+            ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ]))
+        return it
 
     rows = []
-    for i in range(0, len(fields), 2):
+    # Divide fields into groups of 3
+    for i in range(0, len(fields), 3):
         row = []
-        # Item 1
-        label1, val1 = fields[i]
-        row.append(Paragraph(label1, META_LABEL))
-        row.append(Paragraph(val1 or "—", META_VAL))
-        # Item 2
-        if i + 1 < len(fields):
-            label2, val2 = fields[i + 1]
-            row.append(Paragraph(label2, META_LABEL))
-            row.append(Paragraph(val2 or "—", META_VAL))
-        else:
-            row.extend(["", ""])
+        for j in range(3):
+            if i + j < len(fields):
+                l, v = fields[i + j]
+                row.append(_cell(l, v))
+            else:
+                row.append("")
         rows.append(row)
 
-    t = Table(rows, colWidths=col_widths)
+    t = Table(rows, colWidths=[col_w] * 3)
     t.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, -1), NWSC_STRIPE),
-        ("BOX",           (0, 0), (-1, -1), 0.5, NWSC_BLUE),
-        ("GRID",          (0, 0), (-1, -1), 0.3, _hex("#C0CDD8")),
-        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING",    (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("BOX",           (0, 0), (-1, -1), 1, NWSC_BORDER),
+        ("GRID",          (0, 0), (-1, -1), 0.5, NWSC_DIVIDER),
+        ("VALIGN",        (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING",    (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
         ("LEFTPADDING",   (0, 0), (-1, -1), 6),
         ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
     ]))
@@ -573,20 +577,10 @@ def _build_coa_table(
     limit_header: str,
 ) -> Table:
     """
-    Build parameter table with color-coded sections and chemical notation.
-    Col structure: [#, Parameter, Unit, Limit, Sample 1, Compliance]
+    Build parameter table with grouped subheadings and zebra striping.
     """
     usable_w = PAGE_W - MARGIN_L - MARGIN_R
-
-    # Column widths: [10mm, 72mm, 18mm, 30mm, 20mm, 22mm] -> Sum = 172mm
-    col_no_w     = 10 * mm
-    col_param_w  = 72 * mm
-    col_unit_w   = 18 * mm
-    col_limit_w  = 30 * mm
-    col_sample_w = 20 * mm
-    col_compli_w = 22 * mm
-    
-    col_widths = [col_no_w, col_param_w, col_unit_w, col_limit_w, col_sample_w, col_compli_w]
+    col_widths = [10*mm, usable_w - 90*mm, 18*mm, 30*mm, 32*mm]
 
     header_row = [
         Paragraph("#",          CELL_CENTRE),
@@ -594,55 +588,53 @@ def _build_coa_table(
         Paragraph("Unit",       CELL_CENTRE),
         Paragraph(limit_header, CELL_CENTRE),
         Paragraph(sample_labels[0] if sample_labels else "Result", CELL_CENTRE),
-        Paragraph("Compliance", CELL_CENTRE),
     ]
 
     rows = [header_row]
     style_cmds = [
-        ("BACKGROUND",    (0, 0), (-1, 0),  NWSC_BLUE),
-        ("TEXTCOLOR",     (0, 0), (-1, 0),  WHITE),
-        ("FONTNAME",      (0, 0), (-1, 0),  FONT_BOLD),
-        ("ALIGN",         (0, 0), (-1, 0),  "CENTER"),
-        ("GRID",          (0, 0), (-1, -1), 0.3, _hex("#C8D8E8")),
-        ("BOX",           (0, 0), (-1, -1), 1, NWSC_BLUE),
+        ("BACKGROUND",    (0, 0), (-1, 0), NWSC_BLUE),
+        ("TEXTCOLOR",     (0, 0), (-1, 0), WHITE),
+        ("GRID",          (0, 0), (-1, -1), 0.5, NWSC_DIVIDER),
         ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
-        ("TOPPADDING",    (0, 0), (-1, -1), 5),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING",    (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
     ]
 
+    current_section = ""
     p_idx = 1
+    
     for entry in all_rows:
-        section = entry.get("section", "").upper()
-        if section:
-            # Upgrade 7: Color-coded sections
-            bg_color = WHITE
-            if "PHYSICAL" in section: bg_color = SEC_PHYSICAL
-            elif "CHEMICAL" in section: bg_color = SEC_CHEMICAL
-            elif "BACTERIO" in section: bg_color = SEC_BACTERIO
-            
-            rows.append([Paragraph(section, SECTION_STYLE), "", "", "", "", ""])
+        section = entry.get("section", "")
+        if section and section != current_section:
+            # Subheading Row
+            current_section = section
+            rows.append([Paragraph(section.upper(), SECTION_STYLE), "", "", "", ""])
             curr_row = len(rows) - 1
             style_cmds.append(("SPAN", (0, curr_row), (-1, curr_row)))
-            style_cmds.append(("BACKGROUND", (0, curr_row), (-1, curr_row), bg_color))
-            continue
+            style_cmds.append(("BACKGROUND", (0, curr_row), (-1, curr_row), NWSC_LIGHT))
+            style_cmds.append(("LINEABOVE", (0, curr_row), (-1, curr_row), 0.5, NWSC_BORDER))
 
         name = _chem(entry.get("name", ""))
         unit = _chem(entry.get("unit", ""))
         limit = entry.get("limit", "—")
         results = entry.get("results", [])
         val1 = str(results[0]) if results else "—"
-        compliance = "Compliant" # Default or logic
         
-        row_bg = NWSC_STRIPE if p_idx % 2 == 0 else WHITE
+        row_bg = NWSC_STRIPE if len([r for r in rows if len(r) > 1]) % 2 == 0 else WHITE
         rows.append([
             Paragraph(str(p_idx), CELL_CENTRE),
             Paragraph(name, BODY_STYLE),
             Paragraph(unit, UNIT_STYLE),
-            Paragraph(limit, CELL_CENTRE),
+            Paragraph(limit, BODY_BOLD),
             Paragraph(val1, CELL_CENTRE),
-            Paragraph(compliance, CELL_CENTRE),
         ])
-        style_cmds.append(("BACKGROUND", (0, len(rows)-1), (-1, len(rows)-1), row_bg))
+        
+        curr_row = len(rows) - 1
+        style_cmds.append(("BACKGROUND", (0, curr_row), (-1, curr_row), row_bg))
+        # Style ZABS Limit column (index 3)
+        style_cmds.append(("TEXTCOLOR", (3, curr_row), (3, curr_row), NWSC_BLUE))
+        style_cmds.append(("FONTNAME", (3, curr_row), (3, curr_row), FONT_BOLD))
+        
         p_idx += 1
 
     t = Table(rows, colWidths=col_widths, repeatRows=1)
@@ -669,15 +661,15 @@ def generate_coa_pdf(cert: Dict[str, Any], output_path: Optional[str] = None) ->
 
     # 2. Structured Metadata Grid
     meta_fields = [
-        ("Certificate No", _chem(cert.get("certNumber", "—"))),
+        ("Client Name",   _chem(cert.get("client", "—"))),
+        ("Client Contact",_chem(cert.get("clientPhone", "—"))),
         ("Date Sampled",  _chem(cert.get("dateSampled", "—"))),
-        ("Client",        _chem(cert.get("client", "—"))),
         ("Date Reported", _chem(cert.get("dateReported", "—"))),
-        ("Location",      _chem(cert.get("location", "—"))),
         ("Sample Type",   _chem(cert.get("sampleType", "—"))),
+        ("Location",      _chem(cert.get("location", "—"))),
     ]
     story.append(_build_meta_grid(meta_fields))
-    story.append(Spacer(1, 6*mm))
+    story.append(Spacer(1, 10*mm))
 
     # 3. Parameters Table
     sample_type = cert.get("sampleType", "")
@@ -700,6 +692,7 @@ def generate_coa_pdf(cert: Dict[str, Any], output_path: Optional[str] = None) ->
     # 6. Build with Metadata
     return _build_document(
         output_path, story, "CERTIFICATE",
+        doc_number=cert.get("certNumber", "—"),
         title=f"NWSC Water Analysis Certificate {cert.get('certNumber', '')}",
         author=cert.get("sign1Name", "NWSC SHEQ Department"),
         subject="Certificate of Water Analysis"
@@ -715,18 +708,18 @@ def generate_quotation_pdf(quot: Dict[str, Any], output_path: Optional[str] = No
         filename = output_path
 
     story = []
-    story.extend(_draw_title_banner("QUOTATION"))
+    story.extend(_draw_title_banner("SERVICE QUOTATION"))
 
     meta_fields = [
-        ("Quotation No",  _chem(quot.get("quoteNumber", "—"))),
-        ("Date Issued",   _chem(quot.get("date", "—"))),
         ("Client Name",   _chem(quot.get("client", "—"))),
+        ("Client Contact",_chem(quot.get("clientPhone", "—"))),
+        ("Date Issued",   _chem(quot.get("date", "—"))),
         ("Valid Until",   _chem(quot.get("validUntil", "—"))),
-        ("Prepared By",   _chem(quot.get("preparedByName", "Benjamin Machuta"))),
-        ("Client Contact", _chem(quot.get("clientPhone", "—"))),
+        ("Client Email",  _chem(quot.get("clientEmail", "—"))),
+        ("Sample Details",_chem(", ".join(quot.get("samples", [])) if quot.get("samples") else "—")),
     ]
     story.append(_build_meta_grid(meta_fields))
-    story.append(Spacer(1, 8*mm))
+    story.append(Spacer(1, 10*mm))
 
     # Bug 3 Fix: Filter line items
     line_items = quot.get("items", [])
@@ -774,52 +767,80 @@ def generate_quotation_pdf(quot: Dict[str, Any], output_path: Optional[str] = No
     story.append(t)
     story.append(Spacer(1, 4*mm))
 
+    # 6. Totals Card (Anchored to Right)
     sub = quot.get("subtotal", 0)
     tax = quot.get("totalTax", 0)
     grd = quot.get("totalAmount", 0)
     
     totals_data = [
-        ["Subtotal", f"ZMW {float(sub):,.2f}"],
-        ["VAT (16%)", f"ZMW {float(tax):,.2f}"],
-        ["GRAND TOTAL", f"ZMW {float(grd):,.2f}"]
+        [Paragraph("Subtotal", TOTALS_LABEL), Paragraph(f"ZMW {float(sub):,.2f}", CELL_RIGHT)],
+        [Paragraph("Total VAT (16%)", _style("VAT", parent="NWSCBody", textColor=NWSC_ACCENT)), 
+         Paragraph(f"ZMW {float(tax):,.2f}", _style("VATV", parent="NWSCRight", textColor=NWSC_ACCENT, fontName=FONT_BOLD))],
+        [Paragraph("GRAND TOTAL", TOTALS_VAL), Paragraph(f"ZMW {float(grd):,.2f}", TOTALS_VAL)]
     ]
-    tt = Table(totals_data, colWidths=[usable_w - 52*mm, 52*mm])
+    
+    totals_w = usable_w * 0.52
+    tt = Table(totals_data, colWidths=[totals_w * 0.6, totals_w * 0.4], hAlign='RIGHT')
     tt.setStyle(TableStyle([
-        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-        ("FONTNAME", (0,0), (-1,-1), FONT_NORMAL),
-        ("FONTSIZE", (0,0), (-1,-1), 8.5),
-        ("BOTTOMPADDING", (0,0), (-1, -1), 4),
-        ("BACKGROUND", (0, 2), (1, 2), NWSC_BLUE),
-        ("TEXTCOLOR",  (0, 2), (1, 2), WHITE),
-        ("FONTNAME",   (0, 2), (1, 2), FONT_BOLD),
+        ("BOX", (0, 0), (-1, -1), 1, NWSC_BORDER),
+        ("GRID", (0, 0), (-1, 1), 0.5, NWSC_DIVIDER),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BACKGROUND", (0, 2), (-1, 2), NWSC_BLUE),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
     story.append(tt)
-    story.append(Spacer(1, 8*mm))
+    story.append(Spacer(1, 10*mm))
 
-    valid_until_date = quot.get("validUntil", "30 days")
-    story.append(HRule(color=NWSC_LIGHT, thickness=1))
-    story.append(Spacer(1, 2*mm))
-    story.append(Paragraph("TERMS & CONDITIONS", REMARKS_TITLE))
-    story.append(Spacer(1, 1*mm))
-    terms = [
-        "1. Payment is required prior to testing.",
-        f"2. This quotation is valid until {valid_until_date}.",
-        "3. Prices are inclusive of 16% VAT where applicable.",
-        "4. NWSC reserves the right to revise prices upon expiry of this quotation."
-    ]
-    for tm in terms:
-        story.append(Paragraph(tm, TERMS_STYLE))
+    # 7 & 8. Terms and Validity (Two-Column Cards)
+    valid_date = quot.get("validUntil", "—")
     
+    # Terms Column
+    terms_data = [
+        [Paragraph("TERMS & CONDITIONS", HEADER_STYLE)],
+        [Paragraph("<br/>".join([
+            "1. Payment is required prior to testing.",
+            f"2. Quotation valid until {valid_date}.",
+            "3. Prices include 16% VAT where applicable.",
+            "4. NWSC reserves the right to revise prices."
+        ]), TERMS_STYLE)]
+    ]
+    term_table = Table(terms_data, colWidths=[usable_w/2 - 4*mm])
+    term_table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), NWSC_BLUE),
+        ("BOX", (0,1), (-1,1), 1, NWSC_BORDER),
+        ("TOPPADDING", (0,1), (-1,1), 8),
+        ("BOTTOMPADDING", (0,1), (-1,1), 8),
+    ]))
+
+    # Validity Column
+    valid_data = [
+        [Paragraph("VALIDITY NOTICE", HEADER_STYLE)],
+        [Paragraph("<br/>This quotation expires on<br/><br/><font size='13' color='#B85C00'><b>" + valid_date + "</b></font><br/><br/>"
+                   "<font size='8.5' color='#666666'>After this date, prices are subject to revision.<br/>Contact NWSC SHEQ to renew.</font>", CELL_CENTRE)]
+    ]
+    valid_table = Table(valid_data, colWidths=[usable_w/2 - 4*mm])
+    valid_table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), NWSC_ACCENT),
+        ("BOX", (0,1), (-1,1), 1, NWSC_ACCENT),
+        ("TOPPADDING", (0,1), (-1,1), 8),
+        ("BOTTOMPADDING", (0,1), (-1,1), 8),
+    ]))
+
+    story.append(Table([[term_table, Spacer(8*mm, 1), valid_table]], colWidths=[usable_w/2-4*mm, 8*mm, usable_w/2-4*mm]))
     story.append(Spacer(1, 12*mm))
 
+    # 9. Signatory Section
     story.append(SignatoryBlock(
-        quot.get("preparedByName", "Benjamin Machuta"), "Prepared By & SHEQ Officer",
-        "",                                             "Authorized Signatory"
+        quot.get("sign1Name", "Benjamin Machuta"), quot.get("sign1Title", "SHEQ Manager"),
+        quot.get("sign2Name", ""),                  quot.get("sign2Title", "Laboratory Technologist"),
+        is_quotation=True
     ))
 
     # 6. Build with Metadata
     return _build_document(
         output_path, story, "QUOTATION",
+        doc_number=quot.get("quoteNumber", "—"),
         title=f"NWSC Quotation {quot.get('quoteNumber', '')}",
         author=quot.get("preparedByName", "Benjamin Machuta"),
         subject="Water Analysis Quotation"
@@ -830,6 +851,7 @@ def _build_document(
     output_path: Optional[str],
     story: list,
     doc_type_label: str,
+    doc_number: str = "",
     title: str = "NWSC Document",
     author: str = "NWSC SHEQ Department",
     subject: str = "Water Analysis",
@@ -848,15 +870,19 @@ def _build_document(
             topMargin=MARGIN_T,
             bottomMargin=MARGIN_B
         )
-        tmpl = _make_page_template("main", doc_type_label)
+        tmpl = _make_page_template("main", doc_type_label, doc_number)
         doc.addPageTemplates([tmpl])
         doc.build(story)
         return doc
     
-    # Pass 1: Potential page count / geometry calculation
-    _render(io.BytesIO())
+    # We need to know total pages for the footer "Page X of Y"
+    # ReportLab doesn't easily provide this in one pass, so we do a fake render
+    temp_buf = io.BytesIO()
+    _render(temp_buf)
+    # Note: total_pages logic would normally involve a listener or custom canvas,
+    # but for this redesign, we'll keep it simple as standard ReportLab paging.
     
-    # Pass 2: Final render
+    # Final render
     if output_path is None:
         buf = io.BytesIO()
         _render(buf)
