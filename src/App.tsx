@@ -13,9 +13,11 @@ import { RegulatoryManager } from './components/RegulatoryManager';
 import { SignatureManager } from './components/SignatureManager';
 import { loadSignatures, saveSignatures } from './utils/signatures';
 import { generateCOAPdf, generateQuotationPdf } from './utils/pdfGenerators';
+import { nextCOANumber, nextQuotationNumber } from './utils/docNumbering';
+import { getIssuanceLog, clearIssuanceLog, IssuanceRecord } from './utils/issuanceLog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus, Save, Printer, FileText, FolderOpen, Database, ShieldCheck, Calculator, FileCheck } from 'lucide-react';
+import { Plus, Save, Printer, FileText, FolderOpen, Database, ShieldCheck, Calculator, FileCheck, ClipboardList } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
 type AppModule = 'certificates' | 'quotations';
@@ -30,7 +32,6 @@ function getNextDocumentNumber(documentNumbers: string[], prefix: 'WAC' | 'QT') 
     const match = value?.match(/(\d+)(?!.*\d)/);
     return Math.max(highest, match ? Number(match[1]) : 0);
   }, 0);
-
   return `${prefix}-${String(maxValue + 1).padStart(3, '0')}`;
 }
 
@@ -115,13 +116,14 @@ export default function App() {
   const [hasHydrated, setHasHydrated] = useState(false);
 
   const [savedCerts, setSavedCerts] = useState<Certificate[]>([]);
-  const [currentCert, setCurrentCert] = useState<Certificate>(generateNewCertificate('WAC-001'));
+  const [currentCert, setCurrentCert] = useState<Certificate>(generateNewCertificate('COA-???'));
   const [savedQuotations, setSavedQuotations] = useState<Quotation[]>([]);
-  const [currentQuotation, setCurrentQuotation] = useState<Quotation>(generateNewQuotation('QT-001'));
+  const [currentQuotation, setCurrentQuotation] = useState<Quotation>(generateNewQuotation('QT-???'));
   const [priceList, setPriceList] = useState<ServicePrice[]>([]);
   const [regLimits, setRegLimits] = useState<RegulatoryLimit[]>([]);
   const [signatures, setSignatures] = useState<Signature[]>([]);
   const [autoSaveEnabled] = useState(true);
+  const [issuanceLog, setIssuanceLog] = useState<IssuanceRecord[]>([]);
 
   useEffect(() => {
     try {
@@ -138,11 +140,12 @@ export default function App() {
 
       setSavedCerts(parsedCerts);
       setSavedQuotations(parsedQuotes);
-      setCurrentCert(generateNewCertificate(getNextDocumentNumber(parsedCerts.map(cert => cert.certNumber), 'WAC')));
-      setCurrentQuotation(generateNewQuotation(getNextDocumentNumber(parsedQuotes.map(quote => quote.quoteNumber), 'QT')));
+      setCurrentCert(generateNewCertificate(nextCOANumber()));
+      setCurrentQuotation(generateNewQuotation(nextQuotationNumber()));
       setPriceList(storedPrices ? JSON.parse(storedPrices) : PARAMETER_PRICES.map((price, index) => ({ id: `p${index}`, ...price })));
       setRegLimits(storedLimits ? dedupeRegulatoryLimits(JSON.parse(storedLimits)) : INITIAL_REGULATORY_LIMITS);
       setSignatures(loadSignatures());
+      setIssuanceLog(getIssuanceLog());
     } catch (error) {
       console.error('Persistence fail', error);
       setPriceList(PARAMETER_PRICES.map((price, index) => ({ id: `p${index}`, ...price })));
@@ -287,9 +290,9 @@ export default function App() {
 
   const handleNew = () => {
     if (activeModule === 'certificates') {
-      setCurrentCert(generateNewCertificate(getNextDocumentNumber(savedCerts.map(cert => cert.certNumber), 'WAC')));
+      setCurrentCert(generateNewCertificate(nextCOANumber()));
     } else {
-      setCurrentQuotation(generateNewQuotation(getNextDocumentNumber(savedQuotations.map(quote => quote.quoteNumber), 'QT')));
+      setCurrentQuotation(generateNewQuotation(nextQuotationNumber()));
     }
     setActiveTab('editor');
   };
@@ -386,6 +389,9 @@ export default function App() {
                 <Database className="mr-2 h-4 w-4" /> Price List
               </TabsTrigger>
             )}
+            <TabsTrigger value="issuance-log" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]">
+              <ClipboardList className="mr-2 h-4 w-4" /> Issuance Log
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="editor" className="mt-0 print:m-0">
@@ -450,6 +456,53 @@ export default function App() {
 
           <TabsContent value="database" className="mt-0 print:hidden">
             <PriceListManager priceList={priceList} setPriceList={setPriceList} onResetToDefault={() => { if (confirm('Reset?')) { setPriceList(PARAMETER_PRICES.map((price, index) => ({ id: `p${index}`, ...price }))); } }} />
+          </TabsContent>
+
+          <TabsContent value="issuance-log" className="mt-0 print:hidden">
+            <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-black text-[#003d7a]">Issuance Log</h2>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-xs text-red-600 border-red-300 hover:bg-red-50"
+                  onClick={() => {
+                    if (!confirm('Clear the entire issuance log? This cannot be undone.')) return;
+                    clearIssuanceLog();
+                    setIssuanceLog([]);
+                    toast.success('Issuance log cleared.');
+                  }}
+                >
+                  Clear Log
+                </Button>
+              </div>
+              {issuanceLog.length === 0 ? (
+                <p className="text-sm text-gray-500">No documents have been issued yet.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-[#003d7a] text-white">
+                        <th className="p-2 text-left">Document No.</th>
+                        <th className="p-2 text-left">Type</th>
+                        <th className="p-2 text-left">Customer</th>
+                        <th className="p-2 text-left">Issued At</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {issuanceLog.map((rec, idx) => (
+                        <tr key={rec.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                          <td className="p-2 font-mono font-bold text-[#003d7a]">{rec.documentNumber}</td>
+                          <td className="p-2">{rec.documentType}</td>
+                          <td className="p-2">{rec.customerName}</td>
+                          <td className="p-2 text-gray-500">{new Date(rec.issuedAt).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </main>

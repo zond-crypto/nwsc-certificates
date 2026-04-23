@@ -3,7 +3,7 @@ import { A4_W, A4_H } from '../constants';
 
 export function drawSharedWatermark(doc: jsPDF, logoDataUrl: string | null): void {
   doc.saveGraphicsState();
-  (doc as any).setGState(new (doc as any).GState({ opacity: 0.04 }));
+  (doc as any).setGState(new (doc as any).GState({ opacity: 0.09 }));
   
   if (logoDataUrl) {
     const sz = 120;

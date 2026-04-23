@@ -1,0 +1,23 @@
+{
+  "name": "NWSC Document Generator",
+  "short_name": "NWSC DocGen",
+  "description": "Nkana Water Supply and Sanitation Company Document Generation App",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#003d7a",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
