@@ -19,7 +19,7 @@ export function drawSharedHeader(doc: jsPDF, logoDataUrl: string | null, documen
     // Inscribed square to fit perfectly without clipping
     const innerSize = LOGO_SIZE * 0.707;
     const offset = (LOGO_SIZE - innerSize) / 2;
-    doc.addImage(logoDataUrl, 'PNG', LOGO_X + offset, LOGO_Y + offset, innerSize, innerSize);
+    doc.addImage(logoDataUrl, 'JPEG', LOGO_X + offset, LOGO_Y + offset, innerSize, innerSize);
 
     doc.setDrawColor(...DB);
     doc.setLineWidth(1);

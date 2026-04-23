@@ -7,7 +7,7 @@ export function drawSharedWatermark(doc: jsPDF, logoDataUrl: string | null): voi
   
   if (logoDataUrl) {
     const sz = 120;
-    doc.addImage(logoDataUrl, 'PNG', (A4_W - sz) / 2, (A4_H - sz) / 2 - 10, sz, sz);
+    doc.addImage(logoDataUrl, 'JPEG', (A4_W - sz) / 2, (A4_H - sz) / 2 - 10, sz, sz);
   }
   
   doc.setFont('helvetica', 'bold');

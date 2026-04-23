@@ -133,7 +133,7 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
   doc.text('3. Prices include 16% VAT where applicable.', MARGIN, ty + 18);
   ty += 30;
 
-  drawSharedSignatories(
+  await drawSharedSignatories(
     doc,
     quotation.sign1Name, quotation.sign1Title, quotation.sign1SignatureImage,
     quotation.sign2Name, quotation.sign2Title, quotation.sign2SignatureImage,

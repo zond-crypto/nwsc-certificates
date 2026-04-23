@@ -1,13 +1,13 @@
 import jsPDF from 'jspdf';
 import { DB, OB, A4_W, MARGIN } from '../constants';
+import { compressDataUrl } from '../utils/imageLoader';
 
-export function drawSharedSignatories(
+export async function drawSharedSignatories(
   doc: jsPDF,
   s1Name: string, s1Title: string, s1Img: string | undefined,
   s2Name: string, s2Title: string, s2Img: string | undefined,
   startY: number = 220
-): number {
-
+): Promise<number> {
 
   const cols = [MARGIN, A4_W / 2 + 10];
   const entries = [
@@ -15,14 +15,20 @@ export function drawSharedSignatories(
     { name: s2Name, title: s2Title, img: s2Img },
   ];
 
+  // Compress signature images in parallel before drawing
+  const compressed = await Promise.all(
+    entries.map(e => e.img ? compressDataUrl(e.img, 400, 0.80) : Promise.resolve(undefined))
+  );
+
   let maxY = startY + 6;
   entries.forEach((e, ci) => {
     if (!e.name && !e.title && !e.img) return;
     const x = cols[ci];
     let sy = startY + 12;
 
-    if (e.img) {
-      try { doc.addImage(e.img, 'PNG', x, sy - 10, 40, 12); } catch {}
+    const imgData = compressed[ci];
+    if (imgData) {
+      try { doc.addImage(imgData, 'JPEG', x, sy - 10, 40, 12); } catch {}
     }
 
     doc.setDrawColor(180, 180, 180);
@@ -47,3 +53,4 @@ export function drawSharedSignatories(
   });
   return maxY + 10;
 }
+

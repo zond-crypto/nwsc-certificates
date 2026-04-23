@@ -126,7 +126,7 @@ export async function generateCOAPdf(certificate: Certificate): Promise<void> {
     ty = 70; 
   }
 
-  drawSharedSignatories(
+  await drawSharedSignatories(
     doc,
     certificate.sign1Name, certificate.sign1Title, certificate.sign1SignatureImage,
     certificate.sign2Name, certificate.sign2Title, certificate.sign2SignatureImage,
