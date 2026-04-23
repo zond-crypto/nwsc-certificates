@@ -102,25 +102,48 @@ def ensure_fonts():
     global _fonts_registered
     if _fonts_registered:
         return
-    try:
-        pdfmetrics.registerFont(TTFont('DejaVuSans', 'DejaVuSans.ttf'))
-        pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', 'DejaVuSans-Bold.ttf'))
-    except Exception:
-        pass
+    
+    # Common paths for fonts
+    font_paths = [
+        ".", 
+        "static/fonts", 
+        "public/fonts",
+        "C:/Windows/Fonts"  # Windows fallback
+    ]
+    
+    font_files = {
+        'DejaVuSans': ['DejaVuSans.ttf', 'DejaVu.ttf', 'arial.ttf'],
+        'DejaVuSans-Bold': ['DejaVuSans-Bold.ttf', 'DejaVu-Bold.ttf', 'arialbd.ttf']
+    }
+    
+    for alias, files in font_files.items():
+        registered = False
+        for f in files:
+            for p in font_paths:
+                path = os.path.join(p, f)
+                if os.path.exists(path):
+                    try:
+                        pdfmetrics.registerFont(TTFont(alias, path))
+                        registered = True
+                        break
+                    except Exception:
+                        continue
+            if registered: break
+    
     _fonts_registered = True
-
-@functools.lru_cache(maxsize=1)
-def get_logo_image(size_w=60, size_h=60):
-    try:
-        return Image("Logo.png", width=size_w, height=size_h)
-    except Exception:
-        return None
 
 try:
     ensure_fonts()
-    FONT_NORMAL = 'DejaVuSans'
-    FONT_BOLD = 'DejaVuSans-Bold'
-    FONT_OBLIQUE = 'DejaVuSans'
+    # Check if they were actually registered
+    registered_fonts = pdfmetrics.getRegisteredFontNames()
+    if 'DejaVuSans' in registered_fonts:
+        FONT_NORMAL = 'DejaVuSans'
+        FONT_BOLD = 'DejaVuSans-Bold'
+        FONT_OBLIQUE = 'DejaVuSans'
+    else:
+        FONT_NORMAL = 'Helvetica'
+        FONT_BOLD = 'Helvetica-Bold'
+        FONT_OBLIQUE = 'Helvetica-Oblique'
 except Exception:
     FONT_NORMAL = 'Helvetica'
     FONT_BOLD = 'Helvetica-Bold'
@@ -199,9 +222,13 @@ def _load_image(source: Optional[str]) -> Optional[ImageReader]:
 def _chem(s: str) -> str:
     """
     Replace Unicode subscripts/superscripts with ReportLab XML markup tags.
-    Fixes rendering as black boxes in built-in Helvetica fonts.
+    Also escapes special XML characters to prevent rendering issues.
     """
     if not s: return ""
+    
+    # Escape special characters for ReportLab Paragraphs
+    s = s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    
     
     # Subscripts
     sub_map = {
@@ -226,15 +253,35 @@ def _chem(s: str) -> str:
 
 
 def _place_watermark(canvas, doc_type: str) -> None:
-    """Draw a diagonal translucent watermark on the background."""
+    """Draw a diagonal translucent logo watermark on the background."""
     canvas.saveState()
-    canvas.setFillColor(NWSC_BLUE)
-    canvas.setFillAlpha(0.04) # 4% opacity per spec
-    canvas.setFont(FONT_BOLD, 72)
-    canvas.translate(PAGE_W / 2, PAGE_H / 2)
-    canvas.rotate(40)
-    canvas.drawCentredString(0, 0, "NWSC")
-    canvas.drawCentredString(0, -80, doc_type.upper())
+    
+    # Logo candidate paths
+    logo_candidates = ["public/logo.png", "logo.png", "src/public/logo.png"]
+    logo_path = None
+    for lp in logo_candidates:
+        if os.path.exists(lp):
+            logo_path = lp
+            break
+            
+    if logo_path:
+        canvas.setFillAlpha(0.04)  # 4% opacity per spec
+        sz = 120 * mm
+        canvas.translate(PAGE_W / 2, PAGE_H / 2)
+        canvas.rotate(40)
+        try:
+            canvas.drawImage(logo_path, -sz/2, -sz/2, width=sz, height=sz, mask='auto', preserveAspectRatio=True)
+        except Exception:
+            pass
+    else:
+        # Fallback if no logo found
+        canvas.setFillColor(NWSC_BLUE)
+        canvas.setFillAlpha(0.04)
+        canvas.setFont(FONT_BOLD, 72)
+        canvas.translate(PAGE_W / 2, PAGE_H / 2)
+        canvas.rotate(40)
+        canvas.drawCentredString(0, 0, "NWSC")
+        
     canvas.restoreState()
 
 
@@ -622,12 +669,12 @@ def generate_coa_pdf(cert: Dict[str, Any], output_path: Optional[str] = None) ->
 
     # 2. Structured Metadata Grid
     meta_fields = [
-        ("Certificate No", cert.get("certNumber", "—")),
-        ("Date Sampled",  cert.get("dateSampled", "—")),
-        ("Client",        cert.get("client", "—")),
-        ("Date Reported", cert.get("dateReported", "—")),
-        ("Location",      cert.get("location", "—")),
-        ("Sample Type",   cert.get("sampleType", "—")),
+        ("Certificate No", _chem(cert.get("certNumber", "—"))),
+        ("Date Sampled",  _chem(cert.get("dateSampled", "—"))),
+        ("Client",        _chem(cert.get("client", "—"))),
+        ("Date Reported", _chem(cert.get("dateReported", "—"))),
+        ("Location",      _chem(cert.get("location", "—"))),
+        ("Sample Type",   _chem(cert.get("sampleType", "—"))),
     ]
     story.append(_build_meta_grid(meta_fields))
     story.append(Spacer(1, 6*mm))
@@ -671,12 +718,12 @@ def generate_quotation_pdf(quot: Dict[str, Any], output_path: Optional[str] = No
     story.extend(_draw_title_banner("QUOTATION"))
 
     meta_fields = [
-        ("Quotation No", quot.get("quoteNumber", "—")),
-        ("Date Issued", quot.get("date", "—")),
-        ("Client Name",  quot.get("client", "—")),
-        ("Valid Until",  quot.get("validUntil", "—")),
-        ("Prepared By",  quot.get("preparedByName", "Benjamin Machuta")),
-        ("Client Contact", quot.get("clientPhone", "—")),
+        ("Quotation No",  _chem(quot.get("quoteNumber", "—"))),
+        ("Date Issued",   _chem(quot.get("date", "—"))),
+        ("Client Name",   _chem(quot.get("client", "—"))),
+        ("Valid Until",   _chem(quot.get("validUntil", "—"))),
+        ("Prepared By",   _chem(quot.get("preparedByName", "Benjamin Machuta"))),
+        ("Client Contact", _chem(quot.get("clientPhone", "—"))),
     ]
     story.append(_build_meta_grid(meta_fields))
     story.append(Spacer(1, 8*mm))
@@ -705,7 +752,7 @@ def generate_quotation_pdf(quot: Dict[str, Any], output_path: Optional[str] = No
     for i, item in enumerate(filtered_items):
         rows.append([
             Paragraph(str(i+1), CELL_CENTRE),
-            Paragraph(item.get("parameterName", ""), BODY_STYLE),
+            Paragraph(_chem(item.get("parameterName", "")), BODY_STYLE),
             Paragraph("Test", CELL_CENTRE),
             Paragraph(str(item.get("quantity", 1)), CELL_CENTRE),
             Paragraph(f"{float(item.get('unitPrice', 0)):,.2f}", CELL_RIGHT),

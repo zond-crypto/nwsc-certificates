@@ -10,10 +10,7 @@ export function drawSharedWatermark(doc: jsPDF, logoDataUrl: string | null): voi
     doc.addImage(logoDataUrl, 'JPEG', (A4_W - sz) / 2, (A4_H - sz) / 2 - 10, sz, sz);
   }
   
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(24);
-  doc.setTextColor(0, 74, 153);
-  doc.text('NKANA WATER SUPPLY\nAND SANITATION COMPANY', A4_W / 2, A4_H / 2 + 65, { align: 'center' });
+  // Text watermark removed as per specifications, retaining logo only
   
   doc.restoreGraphicsState();
 }
