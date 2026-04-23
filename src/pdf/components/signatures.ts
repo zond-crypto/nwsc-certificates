@@ -7,17 +7,7 @@ export function drawSharedSignatories(
   s2Name: string, s2Title: string, s2Img: string | undefined,
   startY: number = 220
 ): number {
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(...DB);
-  doc.text('AUTHORISED SIGNATORIES', MARGIN, startY);
 
-  // Light blue thin line
-  doc.setDrawColor(...DB);
-  doc.setGState(new (doc as any).GState({ opacity: 0.2 }));
-  doc.setLineWidth(1);
-  doc.line(MARGIN, startY + 2, A4_W - MARGIN, startY + 2);
-  doc.setGState(new (doc as any).GState({ opacity: 1 }));
 
   const cols = [MARGIN, A4_W / 2 + 10];
   const entries = [

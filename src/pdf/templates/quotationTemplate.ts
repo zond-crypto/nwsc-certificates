@@ -43,7 +43,6 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
 
   const tableBody = quotation.items.map((item, idx) => [
     item.parameterName,
-    "Test",
     String(item.quantity),
     formatKwacha(item.unitPrice),
     formatKwacha(item.tax),
@@ -51,7 +50,7 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
   ]);
 
   autoTable(doc, {
-    head: [['Parameter', 'Unit', 'Qty', 'Unit Price', 'VAT (16%)', 'Total']],
+    head: [['Parameter', 'Qty', 'Unit Price', 'VAT (16%)', 'Total']],
     body: tableBody,
     startY: curY,
     margin: { left: MARGIN, right: MARGIN, bottom: 20 },
@@ -74,10 +73,9 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
     columnStyles: {
       0: { cellWidth: 'auto', halign: 'left' },
       1: { cellWidth: 20, halign: 'center' },
-      2: { cellWidth: 20, halign: 'center' },
+      2: { cellWidth: 28, halign: 'right' },
       3: { cellWidth: 28, halign: 'right' },
-      4: { cellWidth: 28, halign: 'right' },
-      5: { cellWidth: 32, halign: 'right', fontStyle: 'bold' },
+      4: { cellWidth: 32, halign: 'right', fontStyle: 'bold' },
     },
     alternateRowStyles: { fillColor: [250, 250, 250] as [number,number,number] },
   });

@@ -66,7 +66,6 @@ export default function Quotation({ data }: QuotationProps) {
             <thead>
               <tr className="bg-[#004a99] text-white text-center">
                 <th className="border border-white/20 p-2 text-left">Parameter</th>
-                <th className="border border-white/20 p-2 w-20">Unit</th>
                 <th className="border border-white/20 p-2 w-20">Quantity</th>
                 <th className="border border-white/20 p-2 w-28">Unit Price</th>
                 <th className="border border-white/20 p-2 w-28">VAT (16%)</th>
@@ -79,7 +78,6 @@ export default function Quotation({ data }: QuotationProps) {
                 return (
                   <tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                     <td className="border border-gray-300 p-3 font-medium px-4">{item.description}</td>
-                    <td className="border border-gray-300 p-3 text-center">{item.unit}</td>
                     <td className="border border-gray-300 p-3 text-center">{item.quantity}</td>
                     <td className="border border-gray-300 p-3 text-right px-4">K {item.unitPrice.toFixed(2)}</td>
                     <td className="border border-gray-300 p-3 text-right px-4 text-orange-600 font-medium">K {itemVat.toFixed(2)}</td>
@@ -90,27 +88,27 @@ export default function Quotation({ data }: QuotationProps) {
             </tbody>
             <tfoot>
                <tr className="text-right">
-                  <td colSpan={4} className="border-l border-b border-gray-300 p-2 font-medium">Subtotal</td>
+                  <td colSpan={3} className="border-l border-b border-gray-300 p-2 font-medium">Subtotal</td>
                   <td colSpan={2} className="border border-gray-300 p-2 px-4 font-bold">K {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                </tr>
                {discountAmount > 0 && (
                  <tr className="text-right text-red-600">
-                    <td colSpan={4} className="border-l border-b border-gray-300 p-2 font-medium">Discount</td>
+                    <td colSpan={3} className="border-l border-b border-gray-300 p-2 font-medium">Discount</td>
                     <td colSpan={2} className="border border-gray-300 p-2 px-4 font-bold">- K {discountAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                  </tr>
                )}
                {discountAmount > 0 && (
                  <tr className="text-right">
-                    <td colSpan={4} className="border-l border-b border-gray-300 p-2 font-medium">Taxable Amount</td>
+                    <td colSpan={3} className="border-l border-b border-gray-300 p-2 font-medium">Taxable Amount</td>
                     <td colSpan={2} className="border border-gray-300 p-2 px-4 font-bold text-gray-700 font-mono">K {taxableAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                  </tr>
                )}
                <tr className="text-right">
-                  <td colSpan={4} className="border-l border-b border-gray-300 p-2 font-medium text-orange-600">Total VAT (16%)</td>
+                  <td colSpan={3} className="border-l border-b border-gray-300 p-2 font-medium text-orange-600">Total VAT (16%)</td>
                   <td colSpan={2} className="border border-gray-300 p-2 px-4 font-bold text-orange-600">K {vat.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                </tr>
                <tr className="text-right bg-[#004a99] text-white">
-                  <td colSpan={4} className="p-3 text-lg font-bold uppercase tracking-widest">Grand Total</td>
+                  <td colSpan={3} className="p-3 text-lg font-bold uppercase tracking-widest">Grand Total</td>
                   <td colSpan={2} className="p-3 px-4 text-xl font-bold">K {grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                </tr>
             </tfoot>

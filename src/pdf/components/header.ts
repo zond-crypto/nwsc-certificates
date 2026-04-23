@@ -15,10 +15,16 @@ export function drawSharedHeader(doc: jsPDF, logoDataUrl: string | null, documen
   if (logoDataUrl) {
     doc.setFillColor(255, 255, 255);
     doc.circle(LOGO_X + LOGO_SIZE / 2, LOGO_Y + LOGO_SIZE / 2, LOGO_SIZE / 2 + 1, 'F');
+    
+    doc.saveGraphicsState();
+    doc.circle(LOGO_X + LOGO_SIZE / 2, LOGO_Y + LOGO_SIZE / 2, LOGO_SIZE / 2);
+    doc.clip();
+    doc.addImage(logoDataUrl, 'PNG', LOGO_X, LOGO_Y, LOGO_SIZE, LOGO_SIZE);
+    doc.restoreGraphicsState();
+
     doc.setDrawColor(...DB);
     doc.setLineWidth(1);
     doc.circle(LOGO_X + LOGO_SIZE / 2, LOGO_Y + LOGO_SIZE / 2, LOGO_SIZE / 2, 'D');
-    doc.addImage(logoDataUrl, 'PNG', LOGO_X + 2, LOGO_Y + 2, LOGO_SIZE - 4, LOGO_SIZE - 4);
   }
 
   // Company Info (Left aligned, next to logo)

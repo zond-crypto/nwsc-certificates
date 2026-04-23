@@ -93,8 +93,7 @@ export default function WaterAnalysisCertificate({ data }: WaterAnalysisCertific
 
         {/* Signatories */}
         <div className="mt-10 border-t-2 border-[#004a99]/20 pt-4">
-          <h4 className="text-sm font-bold text-[#004a99] uppercase tracking-wider mb-6">Authorised Signatories</h4>
-          <div className="flex gap-40">
+          <div className="flex gap-40 mt-10">
             {data.signatories.map((sig, i) => (
               <div key={i} className="w-1/3">
                 <div className="border-b-2 border-gray-400 h-8 mb-2"></div>
