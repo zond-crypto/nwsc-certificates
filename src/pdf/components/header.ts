@@ -7,8 +7,8 @@ export function drawSharedHeader(doc: jsPDF, logoDataUrl: string | null, documen
   const LOGO_X = MARGIN;
   const LOGO_Y = 6;
 
-  // Blue background
-  doc.setFillColor(...DB);
+  // White background
+  doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, A4_W, HDR_H, 'F');
 
   // Logo Circle
@@ -16,11 +16,10 @@ export function drawSharedHeader(doc: jsPDF, logoDataUrl: string | null, documen
     doc.setFillColor(255, 255, 255);
     doc.circle(LOGO_X + LOGO_SIZE / 2, LOGO_Y + LOGO_SIZE / 2, LOGO_SIZE / 2 + 1, 'F');
     
-    doc.saveGraphicsState();
-    doc.circle(LOGO_X + LOGO_SIZE / 2, LOGO_Y + LOGO_SIZE / 2, LOGO_SIZE / 2);
-    doc.clip();
-    doc.addImage(logoDataUrl, 'PNG', LOGO_X, LOGO_Y, LOGO_SIZE, LOGO_SIZE);
-    doc.restoreGraphicsState();
+    // Inscribed square to fit perfectly without clipping
+    const innerSize = LOGO_SIZE * 0.707;
+    const offset = (LOGO_SIZE - innerSize) / 2;
+    doc.addImage(logoDataUrl, 'PNG', LOGO_X + offset, LOGO_Y + offset, innerSize, innerSize);
 
     doc.setDrawColor(...DB);
     doc.setLineWidth(1);
@@ -29,13 +28,14 @@ export function drawSharedHeader(doc: jsPDF, logoDataUrl: string | null, documen
 
   // Company Info (Left aligned, next to logo)
   const INFO_X = LOGO_X + LOGO_SIZE + 6;
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(...DB);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   doc.text('NKANA WATER SUPPLY AND SANITATION COMPANY', INFO_X, 15);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7);
+  doc.setTextColor(50, 50, 50);
   doc.text('Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia', INFO_X, 20, { maxWidth: 120 });
   
   doc.setFontSize(6.5);
@@ -45,7 +45,7 @@ export function drawSharedHeader(doc: jsPDF, logoDataUrl: string | null, documen
   // Bottom part: lines and titles
   const midX = A4_W / 2;
   
-  doc.setDrawColor(255, 255, 255);
+  doc.setDrawColor(...DB);
   doc.setLineWidth(0.5);
   doc.setGState(new (doc as any).GState({ opacity: 0.3 }));
   doc.line(MARGIN, 38, A4_W - MARGIN, 38);
@@ -53,11 +53,11 @@ export function drawSharedHeader(doc: jsPDF, logoDataUrl: string | null, documen
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
-  doc.setTextColor(...GD); // Yellow
+  doc.setTextColor(...DB);
   doc.text('SAFETY HEALTH ENVIRONMENT AND QUALITY DEPARTMENT', midX, 44, { align: 'center' });
 
   doc.setFontSize(14);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(...DB);
   doc.text(documentTitle, midX, 52, { align: 'center' });
 
   doc.setGState(new (doc as any).GState({ opacity: 0.3 }));
