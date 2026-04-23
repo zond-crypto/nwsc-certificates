@@ -10,6 +10,12 @@ import { drawSharedWatermark } from '../components/watermark';
 import { drawSharedFooters } from '../components/footer';
 import { drawSharedSignatories } from '../components/signatures';
 
+export async function generateQuotationPdf(quotation: Quotation): Promise<void> {
+  const doc = new jsPDF({ orientation: 'portrait', format: 'a4', unit: 'mm' });
+
+  let logo: string | null = null;
+  try { logo = await loadImg('/logo.png'); } catch { /* skip */ }
+
   const quoteNo = quotation.quotationCode || quotation.quoteNumber || '—';
 
   const metaRows = [

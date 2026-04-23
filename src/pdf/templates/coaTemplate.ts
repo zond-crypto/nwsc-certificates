@@ -146,7 +146,7 @@ export async function generateCOAPdf(certificate: Certificate): Promise<void> {
   if (ty + 60 > A4_H - 15) {
     doc.addPage();
     await drawSharedWatermark(doc, logo);
-    drawSharedHeader(doc, logo, 'WATER ANALYSIS CERTIFICATE');
+    drawSharedHeader(doc, logo, 'WATER ANALYSIS CERTIFICATE', certificate.certNumber || '—');
     ty = 70; 
   }
 

@@ -31,6 +31,7 @@ export type Certificate = {
   sign2SignatureImage?: string;
   tableData: Parameter[];
   savedAt: string;
+  status?: string;
 };
 
 export type QuotationItem = {
