@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nwsc-docgen-v1';
+const CACHE_NAME = 'nwsc-docgen-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',

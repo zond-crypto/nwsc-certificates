@@ -1,6 +1,6 @@
 // ── Cache names (bump DYNAMIC_VERSION to force refresh on deploy)
 const STATIC_VERSION  = 'nwsc-static-v1';
-const DYNAMIC_VERSION = 'nwsc-dynamic-v1';
+const DYNAMIC_VERSION = 'nwsc-dynamic-v2';
 const PDF_CACHE       = 'nwsc-pdf-v1';
 
 // All assets that must be cached on install for full offline use

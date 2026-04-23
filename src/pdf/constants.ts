@@ -1,6 +1,6 @@
-export const DB: [number, number, number] = [0, 74, 153];
-export const OB: [number, number, number] = [0, 119, 182];
-export const GD: [number, number, number] = [253, 224, 71];
+export const DB: [number, number, number] = [11, 78, 138];  // #0B4E8A NWSC Blue
+export const OB: [number, number, number] = [240, 245, 251]; // #F0F5FB Light Blue Tint
+export const GD: [number, number, number] = [184, 92, 0];    // #B85C00 Amber Accent
 
 export const A4_W = 210;
 export const A4_H = 297;
