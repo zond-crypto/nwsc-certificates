@@ -30,15 +30,17 @@ export async function generateCOAPdf(certificate: Certificate): Promise<void> {
 
   const limitHeader = certificate.sampleType === 'Wastewater' ? 'ZEMA Limit' : 'ZABS Limit';
 
-  const row1: [string, string][] = [
-    ['Cert No:',       certificate.certNumber    || '—'],
-    ['Client:',        certificate.client        || '—'],
-    ['Date Sampled:',  certificate.dateSampled   || '—'],
-  ];
-  const row2: [string, string][] = [
-    ['Sample Type:',   certificate.sampleType    || '—'],
-    ['Date Reported:', certificate.dateReported  || '—'],
-    ['Location:',      certificate.location      || '—'],
+  const metaRows = [
+    [
+      { label: 'Client', value: certificate.client },
+      { label: 'Location', value: certificate.location },
+      { label: 'Date Sampled', value: certificate.dateSampled },
+    ],
+    [
+      { label: 'Sample Type', value: certificate.sampleType },
+      { label: 'Date Reported', value: certificate.dateReported },
+      { label: 'Status', value: certificate.status || 'FINAL' },
+    ]
   ];
 
   for (let gi = 0; gi < groups.length; gi++) {
@@ -47,34 +49,50 @@ export async function generateCOAPdf(certificate: Certificate): Promise<void> {
 
     if (gi > 0) doc.addPage();
     await drawSharedWatermark(doc, logo);
-    const afterHdr = drawSharedHeader(doc, logo, 'WATER ANALYSIS CERTIFICATE');
-    const afterMeta = drawSharedMetadata(doc, row1, row2, afterHdr);
+    const afterHdr = drawSharedHeader(doc, logo, 'WATER ANALYSIS CERTIFICATE', certificate.certNumber || '—');
+    const afterMeta = drawSharedMetadata(doc, metaRows, afterHdr);
 
     let tableStartY = afterMeta;
     if (gi > 0) {
-      doc.setFillColor(240, 249, 255);
-      doc.rect(MARGIN, afterMeta, A4_W - 2 * MARGIN, 8, 'F');
+      doc.setFillColor(240, 245, 251);
+      doc.rect(MARGIN, afterMeta, A4_W - 2 * MARGIN, 7, 'F');
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       doc.setTextColor(...DB);
-      doc.text(`Samples ${globalStart + 1}–${globalStart + sampleGroup.length} of ${samples.length} (continued)`, MARGIN + 4, afterMeta + 5);
-      tableStartY = afterMeta + 10;
+      doc.text(`Samples ${globalStart + 1}–${globalStart + sampleGroup.length} of ${samples.length} (continued)`, MARGIN + 4, afterMeta + 4.5);
+      tableStartY = afterMeta + 9;
     }
 
     const tableHead = [['Parameter', 'Unit', limitHeader, ...sampleGroup]];
     const tableBody: any[][] = [];
 
+    // Helper to identify and insert subheadings
+    let currentSection = '';
     tableData.forEach(row => {
-      if (row.section) {
+      const section = row.section ? row.section.toUpperCase() : '';
+      if (section && section !== currentSection) {
         tableBody.push([{
-          content: row.section.toUpperCase(), colSpan: 3 + sampleGroup.length,
-          styles: { fillColor: [245, 245, 245], textColor: DB, fontStyle: 'bold', fontSize: 7, halign: 'left' }
+          content: section, 
+          colSpan: 3 + sampleGroup.length,
+          styles: { 
+            fillColor: [232, 240, 251], // #E8F0FB
+            textColor: DB, 
+            fontStyle: 'bold', 
+            fontSize: 8.5, 
+            halign: 'left',
+            cellPadding: 3
+          }
         }]);
-      } else {
+        currentSection = section;
+      }
+
+      if (!row.section) {
         const resultCols = sampleGroup.map((_, si) => {
           const v = row.results?.[globalStart + si];
           return v !== undefined && v !== null && v !== '' ? v : '—';
         });
+        
+        // ZABS Limit styling is handled via columnStyles/didParseCell
         tableBody.push([row.name || '', row.unit || '', row.limit || '', ...resultCols]);
       }
     });
@@ -86,30 +104,36 @@ export async function generateCOAPdf(certificate: Certificate): Promise<void> {
       margin: { left: MARGIN, right: MARGIN, bottom: 20 },
       theme: 'grid',
       styles: { 
-        fontSize: 7.5, 
-        cellPadding: 2, 
+        fontSize: 8, 
+        cellPadding: 2.5, 
         valign: 'middle', 
-        textColor: [40, 40, 40] as [number,number,number], 
-        lineColor: [200, 200, 200] as [number,number,number], 
-        lineWidth: 0.1 
+        textColor: [51, 51, 51] as [number,number,number], // #333333
+        lineColor: [221, 231, 244] as [number,number,number], // #DDE7F4
+        lineWidth: 0.18 
       },
       headStyles: { 
         fillColor: DB, 
         textColor: [255, 255, 255] as [number,number,number], 
         fontStyle: 'bold', 
-        fontSize: 7.5, 
+        fontSize: 8.5, 
         halign: 'center' 
       },
       columnStyles: {
         0: { cellWidth: 'auto', fontStyle: 'bold' },
         1: { cellWidth: 15, halign: 'center' },
-        2: { cellWidth: 20, halign: 'center' },
+        2: { cellWidth: 25, halign: 'center', textColor: DB, fontStyle: 'bold' }, // ZABS Limit
       },
-      alternateRowStyles: { fillColor: [250, 250, 250] as [number,number,number] },
+      alternateRowStyles: { fillColor: [245, 248, 253] as [number,number,number] }, // #F5F8FD
+      didParseCell: (data) => {
+        // Special overlay for ZABS Limit header
+        if (data.section === 'head' && data.column.index === 2) {
+          data.cell.styles.fillColor = [22, 90, 160]; // Deeper blue overlay simulation
+        }
+      },
       didDrawPage: (data) => {
         void (async () => { await drawSharedWatermark(doc, logo); })();
-        const ah = drawSharedHeader(doc, logo, 'WATER ANALYSIS CERTIFICATE');
-        const am = drawSharedMetadata(doc, row1, row2, ah);
+        const ah = drawSharedHeader(doc, logo, 'WATER ANALYSIS CERTIFICATE', certificate.certNumber || '—');
+        const am = drawSharedMetadata(doc, metaRows, ah);
         data.settings.margin.top = am + 10;
       },
     });
