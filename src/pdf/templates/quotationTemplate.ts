@@ -17,14 +17,13 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
   try { logo = await loadImg('/logo.png'); } catch { /* skip */ }
 
   const row1: [string, string][] = [
-    ['Quotation No:', quotation.quoteNumber    || '—'],
+    ['Quotation No:', quotation.quotationCode || quotation.quoteNumber || '—'],
     ['Client Name:',  quotation.client         || '—'],
     ['Date Issued:',  quotation.date           || '—'],
     ['Valid Until:',  quotation.validUntil     || '—'],
   ];
   const row2: [string, string][] = [
-    ['Prepared By:',     quotation.sign1Name     || '—'],
-    ['Client Contact:',  quotation.clientPhone   || '—'],
+    ['Client Contact:',  [quotation.clientPhone, quotation.clientEmail].filter(Boolean).join(' | ') || '—'],
   ];
 
   await drawSharedWatermark(doc, logo);
@@ -33,116 +32,120 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
 
   const samples = quotation.samples || [];
   if (samples.length > 0) {
-    doc.setFillColor(...OB);
-    doc.rect(MARGIN, curY, A4_W - 2 * MARGIN, 6, 'F');
+    doc.setFillColor(240, 249, 255);
+    doc.rect(MARGIN, curY, A4_W - 2 * MARGIN, 8, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.setTextColor(255, 255, 255);
-    doc.text('Samples:  ' + samples.join('  |  '), MARGIN + 2, curY + 4.2);
-    curY += 8;
+    doc.setFontSize(8);
+    doc.setTextColor(...DB);
+    doc.text('Samples:  ' + samples.join('  |  '), MARGIN + 4, curY + 5);
+    curY += 12;
   }
 
   const tableBody = quotation.items.map((item, idx) => [
-    String(idx + 1),
     item.parameterName,
     "Test",
     String(item.quantity),
     formatKwacha(item.unitPrice),
+    formatKwacha(item.tax),
     formatKwacha(item.amount),
   ]);
 
   autoTable(doc, {
-    head: [['#', 'Description', 'Unit', 'Quantity', 'Unit Price', 'Total']],
+    head: [['Parameter', 'Unit', 'Qty', 'Unit Price', 'VAT (16%)', 'Total']],
     body: tableBody,
-    startY: curY + 2,
-    margin: { left: MARGIN, right: MARGIN, bottom: 15 },
+    startY: curY,
+    margin: { left: MARGIN, right: MARGIN, bottom: 20 },
     theme: 'grid',
-    styles: { fontSize: 7.5, cellPadding: { top: 1.8, bottom: 1.8, left: 2, right: 2 }, overflow: 'linebreak', valign: 'middle', textColor: [20, 20, 20] as [number,number,number], lineColor: [180, 185, 195] as [number,number,number], lineWidth: 0.2 },
-    headStyles: { fillColor: DB, textColor: [255,255,255] as [number,number,number], fontStyle: 'bold', fontSize: 7.5, halign: 'center' },
+    styles: { 
+      fontSize: 8, 
+      cellPadding: 3, 
+      valign: 'middle', 
+      textColor: [30, 30, 30] as [number,number,number], 
+      lineColor: [200, 200, 200] as [number,number,number], 
+      lineWidth: 0.1 
+    },
+    headStyles: { 
+      fillColor: DB, 
+      textColor: [255,255,255] as [number,number,number], 
+      fontStyle: 'bold', 
+      fontSize: 8, 
+      halign: 'center' 
+    },
     columnStyles: {
-      0: { cellWidth: 10, halign: 'center' },
-      1: { cellWidth: 70, halign: 'left' },
-      2: { cellWidth: 15, halign: 'center' },
-      3: { cellWidth: 20, halign: 'center' },
-      4: { cellWidth: 35, halign: 'right' },
-      5: { cellWidth: 36, halign: 'right' },
+      0: { cellWidth: 'auto', halign: 'left' },
+      1: { cellWidth: 20, halign: 'center' },
+      2: { cellWidth: 20, halign: 'center' },
+      3: { cellWidth: 28, halign: 'right' },
+      4: { cellWidth: 28, halign: 'right' },
+      5: { cellWidth: 32, halign: 'right', fontStyle: 'bold' },
     },
-    alternateRowStyles: { fillColor: [235, 240, 248] as [number,number,number] },
-    rowPageBreak: 'auto',
-    didDrawPage: (data) => {
-      void (async () => { await drawSharedWatermark(doc, logo); })();
-      const ah = drawSharedHeader(doc, logo, 'QUOTATION');
-      const am = drawSharedMetadata(doc, row1, row2, ah);
-      data.settings.margin.top = am + 2;
-    },
+    alternateRowStyles: { fillColor: [250, 250, 250] as [number,number,number] },
   });
 
   const tableEndY = (doc as any).lastAutoTable?.finalY ?? curY + 40;
-  let ty = tableEndY + 6;
+  let ty = tableEndY + 10;
 
-  const totalsBlockW = A4_W / 2 - MARGIN;
-  const totalsX      = A4_W - MARGIN - totalsBlockW;
-
-  if (ty + 55 > A4_H - 15) {
+  if (ty + 80 > A4_H - 15) {
     doc.addPage();
     await drawSharedWatermark(doc, logo);
     const ah = drawSharedHeader(doc, logo, 'QUOTATION');
-    ty = drawSharedMetadata(doc, row1, row2, ah) + 6;
+    ty = drawSharedMetadata(doc, row1, row2, ah) + 10;
   }
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(...DB);
-  doc.text('TERMS & CONDITIONS', MARGIN, ty);
-  doc.setDrawColor(...OB);
-  doc.setLineWidth(0.3);
-  doc.line(MARGIN, ty + 1.5, MARGIN + 60, ty + 1.5);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(60, 60, 60);
-  doc.text('1. Payment is required prior to testing.', MARGIN, ty + 6);
-  doc.text(`2. Quotation valid until ${quotation.validUntil}.`, MARGIN, ty + 10);
-  doc.text('3. Prices include 16% VAT where applicable.', MARGIN, ty + 14);
-
-  doc.setFont('helvetica', 'normal');
+  // Totals Section
+  const totalsW = 80;
+  const totalsX = A4_W - MARGIN - totalsW;
+  
   doc.setFontSize(8.5);
   doc.setTextColor(60, 60, 60);
-  doc.text('Subtotal', totalsX, ty);
-  doc.text(formatKwacha(quotation.subtotal), A4_W - MARGIN, ty, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.text('Subtotal', totalsX + 2, ty);
+  doc.text(formatKwacha(quotation.subtotal), A4_W - MARGIN - 2, ty, { align: 'right' });
   ty += 6;
 
   doc.setTextColor(180, 80, 0);
-  doc.text('Total VAT (16%)', totalsX, ty);
-  doc.text(formatKwacha(quotation.totalTax), A4_W - MARGIN, ty, { align: 'right' });
+  doc.text('Total VAT (16%)', totalsX + 2, ty);
+  doc.text(formatKwacha(quotation.totalTax), A4_W - MARGIN - 2, ty, { align: 'right' });
   ty += 8;
 
   doc.setFillColor(...DB);
-  doc.rect(totalsX - 4, ty - 5, totalsBlockW + 4, 12, 'F');
+  doc.rect(totalsX, ty - 5, totalsW, 12, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.text('GRAND TOTAL', totalsX, ty + 3);
-  doc.text(formatKwacha(quotation.totalAmount), A4_W - MARGIN - 2, ty + 3, { align: 'right' });
-  ty += 16;
+  doc.text('GRAND TOTAL', totalsX + 4, ty + 2.5);
+  doc.text(formatKwacha(quotation.totalAmount), A4_W - MARGIN - 4, ty + 2.5, { align: 'right' });
+  ty += 15;
 
-  if (ty + 60 > A4_H - 15) {
-    doc.addPage();
-    await drawSharedWatermark(doc, logo);
-    const ah = drawSharedHeader(doc, logo, 'QUOTATION');
-    ty = drawSharedMetadata(doc, row1, row2, ah) + 6;
-  }
+  // Terms
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(...DB);
+  doc.text('TERMS & CONDITIONS', MARGIN, ty);
+  doc.setDrawColor(...DB);
+  doc.setGState(new (doc as any).GState({ opacity: 0.2 }));
+  doc.line(MARGIN, ty + 2, MARGIN + 40, ty + 2);
+  doc.setGState(new (doc as any).GState({ opacity: 1 }));
+  
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(80, 80, 80);
+  doc.text('1. Payment is required prior to testing.', MARGIN, ty + 8);
+  doc.text(`2. Quotation valid until ${quotation.validUntil}.`, MARGIN, ty + 13);
+  doc.text('3. Prices include 16% VAT where applicable.', MARGIN, ty + 18);
+  ty += 30;
 
   drawSharedSignatories(
     doc,
-    quotation.sign1Name, "Prepared By", quotation.sign1SignatureImage,
-    quotation.sign2Name, "", quotation.sign2SignatureImage,
-    ty + 10
+    quotation.sign1Name, quotation.sign1Title, quotation.sign1SignatureImage,
+    quotation.sign2Name, quotation.sign2Title, quotation.sign2SignatureImage,
+    ty
   );
 
   drawSharedFooters(doc, doc.getNumberOfPages());
 
   const clientStr = sanitizeFilename(quotation.client);
   const dateStr   = formatDateString(quotation.date);
-  const qnoStr    = (quotation.quoteNumber || 'QT').replace(/[^A-Za-z0-9-]/g, '');
+  const qnoStr    = (quotation.quotationCode || quotation.quoteNumber || 'QT').replace(/[^A-Za-z0-9-]/g, '');
   doc.save(`QT_${clientStr}_${dateStr}_${qnoStr}.pdf`);
 }

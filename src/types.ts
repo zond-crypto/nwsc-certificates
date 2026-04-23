@@ -96,3 +96,55 @@ export type RegulatoryLimit = {
   // Deprecated: support old data on load but do not use in new forms
   waterType?: string;
 };
+
+export interface CompanyInfo {
+  name: string;
+  address: string;
+  phone: string;
+  fax: string;
+  email: string;
+  website: string;
+}
+
+export interface QuotationData {
+  quotationNo: string;
+  clientName: string;
+  clientContact: string;
+  dateIssued: string;
+  validUntil: string;
+  items: Array<{
+    id: string;
+    description: string;
+    unit: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+  }>;
+  discount: number;
+  vatRate: number;
+  terms: string[];
+  signatories: Array<{
+    name: string;
+    title: string;
+  }>;
+}
+
+export interface WaterAnalysisData {
+  certNo: string;
+  client: string;
+  dateReported: string;
+  location: string;
+  sampleType: string;
+  dateSampled: string;
+  rows: Array<{
+    id: string;
+    parameter: string;
+    unit: string;
+    zabsLimit: string;
+    results: string[];
+  }>;
+  signatories: Array<{
+    name: string;
+    title: string;
+  }>;
+}
