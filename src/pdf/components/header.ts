@@ -30,24 +30,26 @@ export function drawSharedHeader(
     doc.circle(LOGO_X + LOGO_SIZE / 2, LOGO_Y + LOGO_SIZE / 2, LOGO_SIZE / 2, 'D');
   }
 
-  // Company Info
+  // Badge (Right aligned)
+  const BADGE_W = A4_W * 0.22; // Fixed max width: 22% of page
+  const BADGE_H = 14;
+  const BADGE_X = A4_W - MARGIN - BADGE_W;
+  const BADGE_Y = LOGO_Y + (LOGO_SIZE - BADGE_H) / 2;
+
+  // Company Info - Calculate available width accurately to prevent clipping
   const INFO_X = LOGO_X + LOGO_SIZE + 5;
+  const AVAIL_INFO_W = BADGE_X - INFO_X - 5; 
+
   doc.setTextColor(...DB);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.text('NKANA WATER SUPPLY AND SANITATION COMPANY', INFO_X, 15);
+  doc.setFontSize(12); // Slightly reduced from 13 to be safe
+  doc.text('NKANA WATER SUPPLY AND SANITATION COMPANY', INFO_X, 15, { maxWidth: AVAIL_INFO_W });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
   doc.setTextColor(80, 80, 80);
-  doc.text('Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia', INFO_X, 19.5);
-  doc.text('Tel: +260 212 222488 | Fax: +260 212 222490 | headoffice@nwsc.com.zm', INFO_X, 23.5);
-
-  // Badge (Right aligned)
-  const BADGE_W = 45;
-  const BADGE_H = 14;
-  const BADGE_X = A4_W - MARGIN - BADGE_W;
-  const BADGE_Y = LOGO_Y + (LOGO_SIZE - BADGE_H) / 2;
+  doc.text('Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia', INFO_X, 19.5, { maxWidth: AVAIL_INFO_W });
+  doc.text('Tel: +260 212 222488 | Fax: +260 212 222490 | headoffice@nwsc.com.zm', INFO_X, 23.5, { maxWidth: AVAIL_INFO_W });
 
   doc.setFillColor(...DB);
   // Rounded rect for badge (4px radius)
@@ -60,7 +62,9 @@ export function drawSharedHeader(
   doc.text(label, BADGE_X + BADGE_W / 2, BADGE_Y + 5, { align: 'center' });
   
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
+  // Dynamic font size for docNumber if it's too long
+  const docNumFontSize = docNumber.length > 12 ? 9 : 11;
+  doc.setFontSize(docNumFontSize);
   doc.text(docNumber, BADGE_X + BADGE_W / 2, BADGE_Y + 10.5, { align: 'center' });
 
   // Main Header Rule

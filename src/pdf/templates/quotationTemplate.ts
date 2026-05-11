@@ -72,12 +72,29 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
       4: { cellWidth: 30, halign: 'center', fontStyle: 'bold', textColor: DB },
     },
     alternateRowStyles: { fillColor: [245, 248, 253] as [number,number,number] },
+    didParseCell: (data) => {
+      // 1. Header Wrapping Logic
+      if (data.section === 'head') {
+        const text = data.cell.text.join(' ');
+        const isSingleWord = !text.includes(' ');
+        
+        if (isSingleWord) {
+          data.cell.styles.minCellWidth = doc.getTextWidth(text) + 2;
+          if (data.cell.styles.minCellWidth > data.column.width) {
+            data.cell.styles.fontSize = 7;
+          }
+        } else {
+           data.cell.styles.fontSize = 7.5;
+        }
+      }
+    }
   });
 
   const tableEndY = (doc as any).lastAutoTable?.finalY ?? curY + 40;
   let ty = tableEndY + 10;
 
-  if (ty + 90 > A4_H - 15) {
+  // 5. Signatory placement logic: 40mm threshold
+  if (ty + 55 > A4_H - 10) { 
     doc.addPage();
     await drawSharedWatermark(doc, logo);
     const ah = drawSharedHeader(doc, logo, 'SERVICE QUOTATION', quoteNo, true);

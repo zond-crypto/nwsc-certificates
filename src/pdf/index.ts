@@ -1,5 +1,4 @@
-import { generateCOAPdf as generateCOAPdfTemplate } from './templates/coaTemplate';
-import { generateQuotationPdf as generateQuotationPdfTemplate } from './templates/quotationTemplate';
+import { generateCOA as generateCOAPdfTemplate, generateQuotation as generateQuotationPdfTemplate } from '../utils/documentGenerator';
 import { exportCOA, exportQuotation } from './exports/csvExporter';
 import { Certificate, Quotation } from '../types';
 import { recordIssuance } from '../utils/issuanceLog';
@@ -18,7 +17,7 @@ export async function generateCOAPdf(certificate: Certificate): Promise<void> {
   );
 
   // Step 2: Generate & download the PDF.
-  return generateCOAPdfTemplate(certificate);
+  await generateCOAPdfTemplate(certificate);
 }
 
 /**
@@ -35,7 +34,7 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
   );
 
   // Step 2: Generate & download the PDF.
-  return generateQuotationPdfTemplate(quotation);
+  await generateQuotationPdfTemplate(quotation);
 }
 
 export function exportCOACSV(certificate: Certificate): void {

@@ -16,19 +16,17 @@ export const DEFAULT_PARAMS: Parameter[] = [
   { id: 'p10', section: 'Chemical Parameters', name: 'Nitrate (NO3)', unit: 'mg/L', limit: '<= 50', results: [''], numeric_limit_high: 50 },
   { id: 'p11', section: 'Chemical Parameters', name: 'Nitrite (NO2)', unit: 'mg/L', limit: '<= 3', results: [''], numeric_limit_high: 3 },
   { id: 'p12', section: 'Chemical Parameters', name: 'Fluoride', unit: 'mg/L', limit: '<= 1.5', results: [''], numeric_limit_high: 1.5 },
+  { id: 'p17', section: 'Chemical Parameters', name: 'Chloride (Cl-)', unit: 'mg/L', limit: '<= 250', results: [''], numeric_limit_high: 250 },
+  { id: 'p18', section: 'Chemical Parameters', name: 'Sulphate (SO4)', unit: 'mg/L', limit: '<= 250', results: [''], numeric_limit_high: 250 },
+  { id: 'p19', section: 'Chemical Parameters', name: 'Alkalinity', unit: 'mg/L', limit: '<= 500', results: [''], numeric_limit_high: 500 },
+  { id: 'p20', section: 'Chemical Parameters', name: 'Calcium (Ca)', unit: 'mg/L', limit: '<= 200', results: [''], numeric_limit_high: 200 },
+  { id: 'p21', section: 'Chemical Parameters', name: 'Magnesium (Mg)', unit: 'mg/L', limit: '<= 150', results: [''], numeric_limit_high: 150 },
   
   // Heavy Metals
   { id: 'p13', section: 'Heavy Metals', name: 'Iron (Fe)', unit: 'mg/L', limit: '<= 0.3', results: [''], numeric_limit_high: 0.3 },
   { id: 'p14', section: 'Heavy Metals', name: 'Manganese (Mn)', unit: 'mg/L', limit: '<= 0.1', results: [''], numeric_limit_high: 0.1 },
   { id: 'p15', section: 'Heavy Metals', name: 'Copper (Cu)', unit: 'mg/L', limit: '<= 2.0', results: [''], numeric_limit_high: 2.0 },
   { id: 'p16', section: 'Heavy Metals', name: 'Zinc (Zn)', unit: 'mg/L', limit: '<= 3.0', results: [''], numeric_limit_high: 3.0 },
-  
-  // More Chemical
-  { id: 'p17', section: 'Chemical Parameters', name: 'Chloride (Cl-)', unit: 'mg/L', limit: '<= 250', results: [''], numeric_limit_high: 250 },
-  { id: 'p18', section: 'Chemical Parameters', name: 'Sulphate (SO4)', unit: 'mg/L', limit: '<= 250', results: [''], numeric_limit_high: 250 },
-  { id: 'p19', section: 'Chemical Parameters', name: 'Alkalinity', unit: 'mg/L', limit: '<= 500', results: [''], numeric_limit_high: 500 },
-  { id: 'p20', section: 'Chemical Parameters', name: 'Calcium (Ca)', unit: 'mg/L', limit: '<= 200', results: [''], numeric_limit_high: 200 },
-  { id: 'p21', section: 'Chemical Parameters', name: 'Magnesium (Mg)', unit: 'mg/L', limit: '<= 150', results: [''], numeric_limit_high: 150 },
   
   // Microbiological Parameters
   { id: 'p22', section: 'Microbiological Parameters', name: 'Total Coliforms (T/Coli)', unit: 'CFU/100mL', limit: '0', results: [''], numeric_limit_high: 0, bio: true },

@@ -101,53 +101,72 @@ export async function generateCOAPdf(certificate: Certificate): Promise<void> {
       head: tableHead,
       body: tableBody,
       startY: tableStartY,
-      margin: { left: MARGIN, right: MARGIN, bottom: 20 },
+      margin: { left: MARGIN, right: MARGIN, bottom: 15 }, // Slightly reduced bottom margin
       theme: 'grid',
       styles: { 
         fontSize: 8, 
         cellPadding: 2.5, 
         valign: 'middle', 
-        textColor: [51, 51, 51] as [number,number,number], // #333333
-        lineColor: [221, 231, 244] as [number,number,number], // #DDE7F4
-        lineWidth: 0.18 
+        textColor: [51, 51, 51] as [number,number,number],
+        lineColor: [221, 231, 244] as [number,number,number],
+        lineWidth: 0.18,
+        overflow: 'linebreak',
       },
       headStyles: { 
         fillColor: DB, 
         textColor: [255, 255, 255] as [number,number,number], 
         fontStyle: 'bold', 
         fontSize: 8.5, 
-        halign: 'center' 
+        halign: 'center',
+        cellPadding: 2,
       },
       columnStyles: {
         0: { cellWidth: 'auto', fontStyle: 'bold' },
         1: { cellWidth: 15, halign: 'center' },
-        2: { cellWidth: 25, halign: 'center', textColor: DB, fontStyle: 'bold' }, // ZABS Limit
+        2: { cellWidth: 25, halign: 'center', textColor: DB, fontStyle: 'bold' },
       },
-      alternateRowStyles: { fillColor: [245, 248, 253] as [number,number,number] }, // #F5F8FD
+      alternateRowStyles: { fillColor: [245, 248, 253] as [number,number,number] },
       didParseCell: (data) => {
+        // 1. Header Wrapping Logic
+        if (data.section === 'head') {
+          const text = data.cell.text.join(' ');
+          const isSingleWord = !text.includes(' ');
+          
+          if (isSingleWord) {
+            data.cell.styles.minCellWidth = doc.getTextWidth(text) + 2;
+            if (data.cell.styles.minCellWidth > data.column.width) {
+              data.cell.styles.fontSize = 7; // Reduce font to fit single word
+            }
+          } else {
+             // Multi-word wrapping at spaces only
+             data.cell.styles.fontSize = 7.5;
+          }
+        }
+
         // Special overlay for ZABS Limit header
         if (data.section === 'head' && data.column.index === 2) {
-          data.cell.styles.fillColor = [22, 90, 160]; // Deeper blue overlay simulation
+          data.cell.styles.fillColor = [22, 90, 160]; 
         }
       },
       didDrawPage: (data) => {
         void (async () => { await drawSharedWatermark(doc, logo); })();
         const ah = drawSharedHeader(doc, logo, 'WATER ANALYSIS CERTIFICATE', certificate.certNumber || '—');
-        const am = drawSharedMetadata(doc, metaRows, ah);
-        data.settings.margin.top = am + 10;
+        // On continuation pages, we don't repeat the metadata grid to save space
+        data.settings.margin.top = ah + 5;
       },
     });
   }
 
   doc.setPage(doc.getNumberOfPages());
   const lastY = (doc as any).lastAutoTable?.finalY ?? 200;
-  let ty = lastY + 12;
+  let ty = lastY + 10;
 
-  if (ty + 60 > A4_H - 15) {
+  // 5. Signatory placement logic: Only new page if less than 45mm remains
+  if (ty + 45 > A4_H - 10) {
     doc.addPage();
     await drawSharedWatermark(doc, logo);
     drawSharedHeader(doc, logo, 'WATER ANALYSIS CERTIFICATE', certificate.certNumber || '—');
-    ty = 70; 
+    ty = 65; 
   }
 
   await drawSharedSignatories(

@@ -161,6 +161,7 @@ BODY_BOLD        = _style("NWSCBodyBold",   fontSize=8.5, leading=11, textColor=
 CELL_CENTRE      = _style("NWSCCentre",     fontSize=8.5, leading=11, alignment=TA_CENTER, fontName=FONT_NORMAL)
 CELL_RIGHT       = _style("NWSCRight",      fontSize=8.5, leading=11, alignment=TA_RIGHT, fontName=FONT_NORMAL)
 HEADER_STYLE     = _style("NWSCHeader",     fontSize=11,  leading=14, textColor=WHITE,  fontName=FONT_BOLD, alignment=TA_CENTER)
+HEADER_CELL      = _style("NWSCHeaderCell", fontSize=8.5, leading=10, textColor=WHITE, fontName=FONT_BOLD, alignment=TA_CENTER, splitLongWords=0)
 SUBHEADER_STYLE  = _style("NWSCSubheader",  fontSize=8,   leading=10, textColor=NWSC_BLUE, fontName=FONT_BOLD, alignment=TA_CENTER)
 SECTION_STYLE    = _style("NWSCSection",    fontSize=8.5, leading=11, textColor=NWSC_BLUE, fontName=FONT_BOLD, spaceBefore=4, spaceAfter=4)
 TITLE_STYLE      = _style("NWSCTitle",      fontSize=15,  leading=18, textColor=NWSC_BLUE, fontName=FONT_BOLD)
@@ -268,7 +269,7 @@ def _place_watermark(canvas, doc_type: str) -> None:
             break
             
     if logo_path:
-        canvas.setFillAlpha(0.04)  # 4% opacity per spec
+        canvas.setFillAlpha(0.03)  # Reduced by ~10pp from 0.14 or as requested
         sz = 120 * mm
         canvas.translate(PAGE_W / 2, PAGE_H / 2)
         canvas.rotate(40)
@@ -279,7 +280,7 @@ def _place_watermark(canvas, doc_type: str) -> None:
     else:
         # Fallback if no logo found
         canvas.setFillColor(NWSC_BLUE)
-        canvas.setFillAlpha(0.04)
+        canvas.setFillAlpha(0.03)
         canvas.setFont(FONT_BOLD, 72)
         canvas.translate(PAGE_W / 2, PAGE_H / 2)
         canvas.rotate(40)
@@ -311,20 +312,28 @@ def _draw_header_canvas(canvas, doc_type_label: str, doc_number: str = "") -> No
             canvas.drawImage(lp, logo_box_x + 1*mm, logo_box_y + 1*mm, width=logo_box_w - 2*mm, height=logo_box_h - 2*mm, mask='auto')
             break
 
-    # Company Text (Left Aligned next to logo)
+    # Right Badge (Cert/Quotation No)
+    badge_w, badge_h = PAGE_W * 0.22, 14 * mm
+    badge_x = PAGE_W - 18 * mm - badge_w
+    badge_y = PAGE_H - header_h + (header_h - badge_h) / 2
+    
+    # Company Text (Left Aligned next to logo) - Calculate available space
     tx = logo_box_x + logo_box_w + 6 * mm
+    avail_tw = badge_x - tx - 4 * mm
+    
     canvas.setFillColor(WHITE)
     canvas.setFont(FONT_BOLD, 12)
-    canvas.drawString(tx, PAGE_H - 10 * mm, "NKANA WATER SUPPLY & SANITATION CO.")
+    # Ensure full name is never clipped
+    full_name = "NKANA WATER SUPPLY AND SANITATION COMPANY"
+    if canvas.stringWidth(full_name, FONT_BOLD, 12) > avail_tw:
+        canvas.setFont(FONT_BOLD, 10)
+    canvas.drawString(tx, PAGE_H - 10 * mm, full_name)
+    
     canvas.setFont(FONT_NORMAL, 7.5)
     canvas.drawString(tx, PAGE_H - 15 * mm, "Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia")
     canvas.drawString(tx, PAGE_H - 19 * mm, "Tel: +260 212 222488 / 221099 / 0971 223 458")
     canvas.drawString(tx, PAGE_H - 23 * mm, "headoffice@nwsc.com.zm  |  www.nwsc.zm")
 
-    # Right Badge (Cert/Quotation No)
-    badge_w, badge_h = 45 * mm, 14 * mm
-    badge_x = PAGE_W - 18 * mm - badge_w
-    badge_y = PAGE_H - header_h + (header_h - badge_h) / 2
     canvas.setFillColor(WHITE, alpha=0.15)
     canvas.roundRect(badge_x, badge_y, badge_w, badge_h, 1.5 * mm, fill=1, stroke=0)
     
@@ -332,7 +341,10 @@ def _draw_header_canvas(canvas, doc_type_label: str, doc_number: str = "") -> No
     canvas.setFillColor(WHITE)
     canvas.setFont(FONT_NORMAL, 8)
     canvas.drawCentredString(badge_x + badge_w / 2, badge_y + 8.5 * mm, label_text)
-    canvas.setFont(FONT_BOLD, 11)
+    
+    # Dynamic font size for badge value
+    val_fs = 11 if len(doc_number) < 12 else 9
+    canvas.setFont(FONT_BOLD, val_fs)
     canvas.drawCentredString(badge_x + badge_w / 2, badge_y + 3.5 * mm, doc_number or "—")
 
     canvas.restoreState()
@@ -584,10 +596,10 @@ def _build_coa_table(
 
     header_row = [
         Paragraph("#",          CELL_CENTRE),
-        Paragraph("Parameter",  BODY_BOLD),
-        Paragraph("Unit",       CELL_CENTRE),
-        Paragraph(limit_header, CELL_CENTRE),
-        Paragraph(sample_labels[0] if sample_labels else "Result", CELL_CENTRE),
+        Paragraph("Parameter",  HEADER_CELL),
+        Paragraph("Unit",       HEADER_CELL),
+        Paragraph(limit_header, HEADER_CELL),
+        Paragraph(sample_labels[0] if sample_labels else "Result", HEADER_CELL),
     ]
 
     rows = [header_row]
@@ -599,6 +611,19 @@ def _build_coa_table(
         ("TOPPADDING",    (0, 0), (-1, -1), 6),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
     ]
+
+    # Sort parameters by section to ensure spec order: Physical, Chemical, Heavy, Micro
+    section_order = {
+        "PHYSICAL PARAMETERS": 0,
+        "CHEMICAL PARAMETERS": 1,
+        "HEAVY METALS": 2,
+        "MICROBIOLOGICAL PARAMETERS": 3
+    }
+    def _sort_key(row):
+        sec = row.get("section", "").upper()
+        return section_order.get(sec, 99), row.get("id", "")
+
+    all_rows = sorted(all_rows, key=_sort_key)
 
     current_section = ""
     p_idx = 1

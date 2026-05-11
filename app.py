@@ -74,6 +74,30 @@ def generate_pdf_route():
         return jsonify({'error': str(error)}), 500
 
 
+@app.route('/api/store_pdf', methods=['POST'])
+def store_pdf():
+    try:
+        if 'pdf' not in request.files:
+            return jsonify({'error': 'No PDF file provided'}), 400
+        
+        file = request.files['pdf']
+        folder = request.form.get('folder', 'Uncategorized')
+        filename = file.filename
+        
+        # Stores generated PDFs in organized folders
+        import datetime
+        year_month = datetime.datetime.now().strftime("%Y-%m")
+        save_dir = os.path.join(ROOT_DIR, 'workspace', 'generated_pdfs', folder, year_month)
+        os.makedirs(save_dir, exist_ok=True)
+        
+        save_path = os.path.join(save_dir, filename)
+        file.save(save_path)
+        
+        return jsonify({'success': True, 'path': save_path})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/')
 def index():
     if os.path.isfile(os.path.join(DIST_DIR, 'index.html')):
