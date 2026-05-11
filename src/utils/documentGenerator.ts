@@ -3,7 +3,7 @@ import html2pdf from 'html2pdf.js';
 // @ts-ignore
 import Handlebars from 'handlebars';
 import { Certificate, Quotation } from '../types';
-import { formatKwacha } from './formatters';
+import { formatKwacha } from '../pdf/utils/formatters';
 
 Handlebars.registerHelper('addOne', (index) => index + 1);
 Handlebars.registerHelper('index_even', (index) => index % 2 === 0);
@@ -31,13 +31,13 @@ export async function generateDocumentFromTemplate(templateName: 'coa' | 'quotat
   const opt = {
     margin: 0,
     filename: filename,
-    image: { type: 'jpeg', quality: 0.98 },
+    image: { type: 'jpeg' as const, quality: 0.98 },
     html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
   };
 
   // 6. Converts completed documents into final PDF files
-  const pdfBlob = await html2pdf().set(opt).from(container.firstElementChild).outputPdf('blob');
+  const pdfBlob = await html2pdf().set(opt).from(container.firstElementChild as HTMLElement).outputPdf('blob');
   
   // Clean up
   document.body.removeChild(container);
