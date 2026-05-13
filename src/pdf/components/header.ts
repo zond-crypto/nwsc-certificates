@@ -30,19 +30,13 @@ export function drawSharedHeader(
     doc.circle(LOGO_X + LOGO_SIZE / 2, LOGO_Y + LOGO_SIZE / 2, LOGO_SIZE / 2, 'D');
   }
 
-  // Badge (Right aligned)
-  const BADGE_W = A4_W * 0.22; // Fixed max width: 22% of page
-  const BADGE_H = 14;
-  const BADGE_X = A4_W - MARGIN - BADGE_W;
-  const BADGE_Y = LOGO_Y + (LOGO_SIZE - BADGE_H) / 2;
-
-  // Company Info - Calculate available width accurately to prevent clipping
+  // Company Info - Full available width (logo to right margin)
   const INFO_X = LOGO_X + LOGO_SIZE + 5;
-  const AVAIL_INFO_W = BADGE_X - INFO_X - 5; 
+  const AVAIL_INFO_W = A4_W - MARGIN - INFO_X - 3;
 
   doc.setTextColor(...DB);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12); // Slightly reduced from 13 to be safe
+  doc.setFontSize(12);
   doc.text('NKANA WATER SUPPLY AND SANITATION COMPANY', INFO_X, 15, { maxWidth: AVAIL_INFO_W });
 
   doc.setFont('helvetica', 'normal');
@@ -50,22 +44,6 @@ export function drawSharedHeader(
   doc.setTextColor(80, 80, 80);
   doc.text('Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia', INFO_X, 19.5, { maxWidth: AVAIL_INFO_W });
   doc.text('Tel: +260 212 222488 | Fax: +260 212 222490 | headoffice@nwsc.com.zm', INFO_X, 23.5, { maxWidth: AVAIL_INFO_W });
-
-  doc.setFillColor(...DB);
-  // Rounded rect for badge (4px radius)
-  (doc as any).roundedRect(BADGE_X, BADGE_Y, BADGE_W, BADGE_H, 4, 4, 'F');
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  const label = isQuotation ? 'QUOTATION NO' : 'CERT NO';
-  doc.text(label, BADGE_X + BADGE_W / 2, BADGE_Y + 5, { align: 'center' });
-  
-  doc.setFont('helvetica', 'bold');
-  // Dynamic font size for docNumber if it's too long
-  const docNumFontSize = docNumber.length > 12 ? 9 : 11;
-  doc.setFontSize(docNumFontSize);
-  doc.text(docNumber, BADGE_X + BADGE_W / 2, BADGE_Y + 10.5, { align: 'center' });
 
   // Main Header Rule
   doc.setDrawColor(...DB);
@@ -85,7 +63,7 @@ export function drawSharedHeader(
   doc.setLineWidth(0.5);
   doc.line(MARGIN, T_BAND_Y + T_BAND_H, A4_W - MARGIN, T_BAND_Y + T_BAND_H);
 
-  // Text hierarchy
+  // Text hierarchy — Department label (left side of title band)
   doc.setTextColor(...DB);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
@@ -94,6 +72,26 @@ export function drawSharedHeader(
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(15);
   doc.text(documentTitle, MARGIN + 4, T_BAND_Y + 14.5);
+
+  // Reference Number Badge — placed inside title band on the right, no overlap with header text
+  const BADGE_W = A4_W * 0.22;
+  const BADGE_H = 14;
+  const BADGE_X = A4_W - MARGIN - BADGE_W;
+  const BADGE_Y = T_BAND_Y + (T_BAND_H - BADGE_H) / 2; // Vertically centered in title band
+
+  doc.setFillColor(...DB);
+  (doc as any).roundedRect(BADGE_X, BADGE_Y, BADGE_W, BADGE_H, 4, 4, 'F');
+
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  const label = isQuotation ? 'QUOTATION NO' : 'CERT NO';
+  doc.text(label, BADGE_X + BADGE_W / 2, BADGE_Y + 5, { align: 'center' });
+  
+  doc.setFont('helvetica', 'bold');
+  const docNumFontSize = docNumber.length > 12 ? 9 : 11;
+  doc.setFontSize(docNumFontSize);
+  doc.text(docNumber, BADGE_X + BADGE_W / 2, BADGE_Y + 10.5, { align: 'center' });
 
   return T_BAND_Y + T_BAND_H + 6;
 }
