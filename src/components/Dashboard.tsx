@@ -135,8 +135,8 @@ export function Dashboard({ clients, quotations, certificates }: Props) {
             <StatusRow label="Pending Payment" count={stats.pendingPayments} total={stats.totalQuotations} color="bg-orange-500" />
             <StatusRow label="Paid / Contract" count={stats.totalQuotations - stats.pendingPayments} total={stats.totalQuotations} color="bg-green-500" />
             <StatusRow label="Pending COA" count={stats.awaitingCoa} total={stats.totalQuotations} color="bg-blue-500" />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
       {/* Client Intelligence Search */}
