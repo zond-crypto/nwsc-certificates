@@ -98,6 +98,98 @@ def store_pdf():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/templates')
+def list_templates():
+    """Lists custom templates available in workspace/templates."""
+    templates_dir = os.path.join(ROOT_DIR, 'workspace', 'templates')
+    result = {'coa': [], 'quotation': []}
+    
+    for t_type in ['coa', 'quotation']:
+        path = os.path.join(templates_dir, t_type)
+        if os.path.exists(path):
+            files = [f for f in os.listdir(path) if f.endswith(('.html', '.docx'))]
+            result[t_type] = files
+            
+    return jsonify(result)
+
+
+@app.route('/api/generate_from_docx', methods=['POST'])
+def generate_from_docx():
+    """Populates a Word template and returns a PDF (or docx)."""
+    try:
+        from docxtpl import DocxTemplate
+        data = request.get_json()
+        t_type = data.get('type')
+        t_name = data.get('template')
+        filename = data.get('filename', 'document.pdf')
+        
+        if not t_type or not t_name:
+            return jsonify({'error': 'Missing template information'}), 400
+            
+        template_path = os.path.join(ROOT_DIR, 'workspace', 'templates', t_type, t_name)
+        if not os.path.exists(template_path):
+            return jsonify({'error': 'Template not found'}), 404
+            
+        # 1. Populate the Word document
+        doc = DocxTemplate(template_path)
+        doc.render(data.get('payload', {}))
+        
+        # 2. Save to temporary file
+        temp_dir = os.path.join(ROOT_DIR, 'workspace', 'temp')
+        os.makedirs(temp_dir, exist_ok=True)
+        docx_out = os.path.join(temp_dir, t_name.replace('.docx', '_filled.docx'))
+        doc.save(docx_out)
+        
+        # 3. Attempt conversion to PDF if requested and on Windows
+        if filename.endswith('.pdf'):
+            try:
+                from docx2pdf import convert
+                import pythoncom
+                
+                pdf_out = docx_out.replace('.docx', '.pdf')
+                
+                # Initialize COM for the thread
+                pythoncom.CoInitialize()
+                convert(docx_out, pdf_out)
+                
+                with open(pdf_out, 'rb') as f:
+                    pdf_bytes = f.read()
+                
+                response = make_response(pdf_bytes)
+                response.headers['Content-Type'] = 'application/pdf'
+                response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+                return response
+            except Exception as conv_err:
+                # Fallback to returning the docx if PDF conversion fails
+                print(f"PDF Conversion failed: {conv_err}")
+                with open(docx_out, 'rb') as f:
+                    docx_bytes = f.read()
+                response = make_response(docx_bytes)
+                response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                response.headers['Content-Disposition'] = f'attachment; filename="{filename.replace(".pdf", ".docx")}"'
+                return response
+        else:
+            with open(docx_out, 'rb') as f:
+                docx_bytes = f.read()
+            response = make_response(docx_bytes)
+            response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/templates/<t_type>/<name>')
+def get_custom_template(t_type, name):
+    """Serves a specific custom template from workspace/templates."""
+    if t_type not in ['coa', 'quotation']:
+        return jsonify({'error': 'Invalid template type'}), 400
+    
+    templates_dir = os.path.join(ROOT_DIR, 'workspace', 'templates', t_type)
+    return send_from_directory(templates_dir, name)
+
+
 @app.route('/')
 def index():
     if os.path.isfile(os.path.join(DIST_DIR, 'index.html')):

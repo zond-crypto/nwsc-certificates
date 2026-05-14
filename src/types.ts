@@ -32,6 +32,8 @@ export type Certificate = {
   tableData: Parameter[];
   savedAt: string;
   status?: string;
+  customTemplate?: string;
+  linkedQuotationId?: string;
 };
 
 export type QuotationItem = {
@@ -70,6 +72,18 @@ export type Quotation = {
   sign2SignatureImage?: string;
   savedAt: string;
   status?: string; // draft, sent, accepted, rejected, expired
+  customTemplate?: string;
+  paymentStatus?: 'pending' | 'paid';
+};
+
+export type Client = {
+  id: string;
+  name: string;
+  isContract: boolean;
+  phone?: string;
+  email?: string;
+  address?: string;
+  createdAt: string;
 };
 
 export type Signature = {
@@ -80,6 +94,7 @@ export type Signature = {
   dateAdded: string;
   isDefault: boolean;
   lastUsedAt?: string;
+  designatedRole?: 'SHEQ MANAGER' | 'QUALITY ASSURANCE OFFICER' | 'OTHER';
 };
 
 export type ServicePrice = {

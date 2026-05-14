@@ -8,9 +8,57 @@ import { formatKwacha } from '../pdf/utils/formatters';
 Handlebars.registerHelper('addOne', (index) => index + 1);
 Handlebars.registerHelper('index_even', (index) => index % 2 === 0);
 
-export async function generateDocumentFromTemplate(templateName: 'coa' | 'quotation', data: any, filename: string, folder: string) {
-  // 1. Fetch template exactly as designed
-  const response = await fetch(`/templates/${templateName}.html`);
+export async function getAvailableTemplates(): Promise<{ coa: string[], quotation: string[] }> {
+  try {
+    const response = await fetch('/api/templates');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching templates:', error);
+    return { coa: [], quotation: [] };
+  }
+}
+
+export async function generateDocumentFromTemplate(
+  templateName: 'coa' | 'quotation', 
+  data: any, 
+  filename: string, 
+  folder: string,
+  customTemplate?: string
+) {
+  // 1. Handle Word (.docx) templates via Backend
+  if (customTemplate?.endsWith('.docx')) {
+    const response = await fetch('/api/generate_from_docx', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: templateName,
+        template: customTemplate,
+        filename: filename,
+        payload: data
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Failed to generate document from Word template');
+    }
+
+    const blob = await response.blob();
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    return blob;
+  }
+
+  // 2. Fetch HTML template — check custom folder if specified, else use default
+  const templatePath = customTemplate 
+    ? `/api/templates/${templateName}/${customTemplate}`
+    : `/templates/${templateName}.html`;
+
+  const response = await fetch(templatePath);
   const templateStr = await response.text();
 
   // 2. Read placeholders written like {{placeholder_name}}
@@ -70,7 +118,7 @@ export async function generateDocumentFromTemplate(templateName: 'coa' | 'quotat
   return pdfBlob;
 }
 
-export async function generateCOA(certificate: Certificate) {
+export async function generateCOA(certificate: Certificate, customTemplate?: string) {
   const data = {
     certNo: certificate.certNumber,
     client: certificate.client,
@@ -86,16 +134,25 @@ export async function generateCOA(certificate: Certificate) {
       results: r.results
     })),
     signatories: [
-      { name: certificate.sign1Name, title: certificate.sign1Title, signatureImage: certificate.sign1SignatureImage },
-      { name: certificate.sign2Name, title: certificate.sign2Title, signatureImage: certificate.sign2SignatureImage }
-    ]
+      { name: certificate.sign1Name, title: certificate.sign1Title, signatureImage: certificate.sign1SignatureImage, role: 'SHEQ MANAGER' },
+      { name: certificate.sign2Name, title: certificate.sign2Title, signatureImage: certificate.sign2SignatureImage, role: 'QUALITY ASSURANCE OFFICER' }
+    ],
+    signatory1: { name: certificate.sign1Name, title: certificate.sign1Title, signatureImage: certificate.sign1SignatureImage, role: 'SHEQ MANAGER' },
+    signatory2: { name: certificate.sign2Name, title: certificate.sign2Title, signatureImage: certificate.sign2SignatureImage, role: 'QUALITY ASSURANCE OFFICER' },
+    company: {
+      name: 'NKANA WATER SUPPLY AND SANITATION COMPANY',
+      address: 'Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia',
+      phone: '+260 212 222488 / 221099',
+      email: 'headoffice@nwsc.com.zm',
+      web: 'www.nwsc.zm'
+    }
   };
 
   const filename = `COA_${certificate.certNumber?.replace(/[^A-Za-z0-9]/g, '')}_${certificate.client.replace(/[^A-Za-z0-9]/g, '')}.pdf`;
-  return generateDocumentFromTemplate('coa', data, filename, 'COA');
+  return generateDocumentFromTemplate('coa', data, filename, 'COA', customTemplate);
 }
 
-export async function generateQuotation(quotation: Quotation) {
+export async function generateQuotation(quotation: Quotation, customTemplate?: string) {
   const data = {
     quotationNo: quotation.quotationCode || quotation.quoteNumber,
     clientName: quotation.client,
@@ -120,11 +177,20 @@ export async function generateQuotation(quotation: Quotation) {
       'NWSC reserves the right to revise prices.'
     ],
     signatories: [
-      { name: quotation.sign1Name, title: quotation.sign1Title, signatureImage: quotation.sign1SignatureImage },
-      { name: quotation.sign2Name, title: quotation.sign2Title, signatureImage: quotation.sign2SignatureImage }
-    ]
+      { name: quotation.sign1Name, title: quotation.sign1Title, signatureImage: quotation.sign1SignatureImage, role: 'SHEQ MANAGER' },
+      { name: quotation.sign2Name, title: quotation.sign2Title, signatureImage: quotation.sign2SignatureImage, role: 'QUALITY ASSURANCE OFFICER' }
+    ],
+    signatory1: { name: quotation.sign1Name, title: quotation.sign1Title, signatureImage: quotation.sign1SignatureImage, role: 'SHEQ MANAGER' },
+    signatory2: { name: quotation.sign2Name, title: quotation.sign2Title, signatureImage: quotation.sign2SignatureImage, role: 'QUALITY ASSURANCE OFFICER' },
+    company: {
+      name: 'NKANA WATER SUPPLY AND SANITATION COMPANY',
+      address: 'Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia',
+      phone: '+260 212 222488 / 221099',
+      email: 'headoffice@nwsc.com.zm',
+      web: 'www.nwsc.zm'
+    }
   };
 
   const filename = `QT_${(quotation.quotationCode || quotation.quoteNumber)?.replace(/[^A-Za-z0-9]/g, '')}_${quotation.client.replace(/[^A-Za-z0-9]/g, '')}.pdf`;
-  return generateDocumentFromTemplate('quotation', data, filename, 'Quotations');
+  return generateDocumentFromTemplate('quotation', data, filename, 'Quotations', customTemplate);
 }

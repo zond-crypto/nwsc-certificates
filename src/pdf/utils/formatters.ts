@@ -1,6 +1,6 @@
 export function formatKwacha(amount: number): string {
   if (typeof amount !== 'number' || isNaN(amount)) amount = 0;
-  return `K ${amount.toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return 'K ' + amount.toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function sanitizeFilename(s: string): string {

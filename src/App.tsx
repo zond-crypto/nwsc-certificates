@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Certificate, Quotation, RegulatoryLimit, ServicePrice, Signature } from './types';
+import { Certificate, Quotation, RegulatoryLimit, ServicePrice, Signature, Client } from './types';
 import { DEFAULT_PARAMS, DEFAULT_QUOTATION_ITEMS, INITIAL_REGULATORY_LIMITS, PARAMETER_PRICES } from './constants';
 import { validateCertificate, validateQuotation, formatValidationErrors } from './utils/validation';
 import { calculateExpiryDate, generateQuotationCode } from './utils/quotationUtils';
@@ -11,13 +11,15 @@ import { SavedQuotations } from './components/SavedQuotations';
 import { PriceListManager } from './components/PriceListManager';
 import { RegulatoryManager } from './components/RegulatoryManager';
 import { SignatureManager } from './components/SignatureManager';
+import { Dashboard } from './components/Dashboard';
 import { loadSignatures, saveSignatures } from './utils/signatures';
+import { loadClients, saveClients, upsertClient } from './utils/clients';
 import { generateCOAPdf, generateQuotationPdf } from './utils/pdfGenerators';
 import { nextCOANumber, nextQuotationNumber } from './utils/docNumbering';
 import { getIssuanceLog, clearIssuanceLog, IssuanceRecord } from './utils/issuanceLog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus, Save, Printer, FileText, FolderOpen, Database, ShieldCheck, Calculator, FileCheck, ClipboardList } from 'lucide-react';
+import { Plus, Save, Printer, FileText, FolderOpen, Database, ShieldCheck, Calculator, FileCheck, ClipboardList, LayoutDashboard } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 
 type AppModule = 'certificates' | 'quotations';
@@ -124,6 +126,7 @@ export default function App() {
   const [signatures, setSignatures] = useState<Signature[]>([]);
   const [autoSaveEnabled] = useState(true);
   const [issuanceLog, setIssuanceLog] = useState<IssuanceRecord[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
 
   useEffect(() => {
     try {
@@ -146,6 +149,7 @@ export default function App() {
       setRegLimits(storedLimits ? dedupeRegulatoryLimits(JSON.parse(storedLimits)) : INITIAL_REGULATORY_LIMITS);
       setSignatures(loadSignatures());
       setIssuanceLog(getIssuanceLog());
+      setClients(loadClients());
     } catch (error) {
       console.error('Persistence fail', error);
       setPriceList(PARAMETER_PRICES.map((price, index) => ({ id: `p${index}`, ...price })));
@@ -169,6 +173,11 @@ export default function App() {
     if (!hasHydrated) return;
     saveSignatures(signatures);
   }, [hasHydrated, signatures]);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+    saveClients(clients);
+  }, [hasHydrated, clients]);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -233,11 +242,35 @@ export default function App() {
     }
 
     const newCert = { ...normaliseCert(currentCert), savedAt: new Date().toISOString() };
+    
+    // 8.1 Payment Status prompt
+    if (newCert.linkedQuotationId) {
+      const q = savedQuotations.find(x => x.id === newCert.linkedQuotationId);
+      if (q && q.paymentStatus !== 'paid' && !isContractClient(q.client)) {
+         if (!confirm("Has this quotation been paid for?")) {
+            toast.warning("COA saved, but marked as PENDING PAYMENT.");
+            newCert.status = "Awaiting Payment";
+         } else {
+            // Update quotation status retroactively
+            setSavedQuotations(prev => prev.map(quote => quote.id === q.id ? { ...quote, paymentStatus: 'paid' } : quote));
+         }
+      }
+    }
+
     const updated = [newCert, ...savedCerts.filter(cert => cert.id !== newCert.id)];
     updateSavedCerts(updated);
     setCurrentCert(newCert);
+
+    // Save Client
+    if (newCert.client.trim()) {
+      const isContract = isContractClient(newCert.client);
+      setClients(prev => upsertClient(prev, { name: newCert.client, isContract, phone: newCert.clientPhone, email: newCert.clientEmail }));
+    }
+
     toast.success('Certificate saved successfully!');
   };
+
+  const isContractClient = (name: string) => clients.some(c => c.name.toLowerCase() === name.toLowerCase() && c.isContract);
 
   const handleSaveQuote = async (): Promise<boolean> => {
     const errors = validateQuotation(currentQuotation);
@@ -248,17 +281,17 @@ export default function App() {
 
     let quotationCode = currentQuotation.quotationCode;
     if (!quotationCode) {
-      const getLastSequenceForMonth = async (yearMonth: string) => {
+      const getLastSequenceForYear = async (year: string) => {
         const existingCodes = savedQuotations
-          .filter(quote => quote.quotationCode?.startsWith(`QT-${yearMonth}`))
+          .filter(quote => quote.quotationCode?.startsWith(`QT-${year}`))
           .map(quote => {
-            const match = quote.quotationCode?.match(/QT-\d{6}-(\d{4})/);
+            const match = quote.quotationCode?.match(/QT-\d{8}-(\d{4})/);
             return match ? parseInt(match[1], 10) : 0;
           });
         return existingCodes.length > 0 ? Math.max(...existingCodes) : 0;
       };
 
-      quotationCode = await generateQuotationCode(getLastSequenceForMonth, new Date(currentQuotation.date));
+      quotationCode = await generateQuotationCode(getLastSequenceForYear, new Date(currentQuotation.date));
     }
 
     if (quotationCode) {
@@ -284,15 +317,21 @@ export default function App() {
     const updated = [newQuote, ...savedQuotations.filter(quote => quote.id !== newQuote.id)];
     updateSavedQuotations(updated);
     setCurrentQuotation(newQuote);
+
+    // Save Client
+    if (newQuote.client.trim()) {
+      setClients(prev => upsertClient(prev, { name: newQuote.client, isContract: false, phone: newQuote.clientPhone, email: newQuote.clientEmail, address: newQuote.clientAddress }));
+    }
+
     toast.success('Quotation saved successfully!');
     return true;
   };
 
   const handleNew = () => {
     if (activeModule === 'certificates') {
-      setCurrentCert(generateNewCertificate(nextCOANumber()));
+      setCurrentCert({ ...generateNewCertificate(nextCOANumber()), linkedQuotationId: undefined });
     } else {
-      setCurrentQuotation(generateNewQuotation(nextQuotationNumber()));
+      setCurrentQuotation({ ...generateNewQuotation(nextQuotationNumber()), quotationCode: undefined });
     }
     setActiveTab('editor');
   };
@@ -369,6 +408,9 @@ export default function App() {
       <main className="mx-auto max-w-[1240px] p-4 pb-24 md:p-6 print:p-0">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-6 bg-[#003d7a]/5 print:hidden">
+            <TabsTrigger value="dashboard" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]">
+              <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+            </TabsTrigger>
             <TabsTrigger value="editor" className="data-[state=active]:bg-white data-[state=active]:text-[#003d7a]">
               <FileText className="mr-2 h-4 w-4" /> Editor
             </TabsTrigger>
@@ -394,9 +436,13 @@ export default function App() {
             </TabsTrigger>
           </TabsList>
 
+          <TabsContent value="dashboard" className="mt-0 print:hidden">
+            <Dashboard clients={clients} quotations={savedQuotations} certificates={savedCerts} />
+          </TabsContent>
+
           <TabsContent value="editor" className="mt-0 print:m-0">
             {activeModule === 'certificates' ? (
-              <CertificateEditor certificate={currentCert} setCertificate={setCurrentCert} onSave={handleSaveCert} regLimits={regLimits} signatures={signatures} />
+              <CertificateEditor certificate={currentCert} setCertificate={setCurrentCert} onSave={handleSaveCert} regLimits={regLimits} signatures={signatures} quotations={savedQuotations} />
             ) : (
               <QuotationEditor quotation={currentQuotation} setQuotation={setCurrentQuotation} onSave={handleSaveQuote} priceList={priceList} signatures={signatures} />
             )}
@@ -406,6 +452,7 @@ export default function App() {
             {activeModule === 'certificates' ? (
               <SavedCertificates
                 certificates={savedCerts}
+                clients={clients}
                 onLoad={(id) => {
                   const cert = savedCerts.find(item => item.id === id);
                   if (!cert) return;
@@ -426,6 +473,7 @@ export default function App() {
             ) : (
               <SavedQuotations
                 quotations={savedQuotations}
+                clients={clients}
                 onLoad={(id) => {
                   const quotation = savedQuotations.find(item => item.id === id);
                   if (!quotation) return;
@@ -459,41 +507,37 @@ export default function App() {
           </TabsContent>
 
           <TabsContent value="issuance-log" className="mt-0 print:hidden">
-            <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-black text-[#003d7a]">Issuance Log</h2>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs text-red-600 border-red-300 hover:bg-red-50"
-                  onClick={() => {
-                    if (!confirm('Clear the entire issuance log? This cannot be undone.')) return;
-                    clearIssuanceLog();
-                    setIssuanceLog([]);
-                    toast.success('Issuance log cleared.');
-                  }}
-                >
-                  Clear Log
-                </Button>
-              </div>
-              {issuanceLog.length === 0 ? (
-                <p className="text-sm text-gray-500">No documents have been issued yet.</p>
-              ) : (
+            <div className="space-y-6">
+              {/* COA Log Section */}
+              <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-black text-[#003d7a] uppercase tracking-widest">COA Issuance Log</h2>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs text-red-600 border-red-300 hover:bg-red-50"
+                    onClick={() => {
+                      if (!confirm('Clear the entire issuance log?')) return;
+                      clearIssuanceLog();
+                      setIssuanceLog([]);
+                    }}
+                  >
+                    Clear All Logs
+                  </Button>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs border-collapse">
                     <thead>
                       <tr className="bg-[#003d7a] text-white">
-                        <th className="p-2 text-left">Document No.</th>
-                        <th className="p-2 text-left">Type</th>
+                        <th className="p-2 text-left">COA Number</th>
                         <th className="p-2 text-left">Customer</th>
                         <th className="p-2 text-left">Issued At</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {issuanceLog.map((rec, idx) => (
+                      {issuanceLog.filter(r => r.documentType === 'Certificate').map((rec, idx) => (
                         <tr key={rec.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                           <td className="p-2 font-mono font-bold text-[#003d7a]">{rec.documentNumber}</td>
-                          <td className="p-2">{rec.documentType}</td>
                           <td className="p-2">{rec.customerName}</td>
                           <td className="p-2 text-gray-500">{new Date(rec.issuedAt).toLocaleString()}</td>
                         </tr>
@@ -501,7 +545,39 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
-              )}
+              </div>
+
+              {/* Quotations Log Section */}
+              <div className="bg-white rounded-xl shadow border border-gray-200 p-6">
+                <h2 className="text-lg font-black text-[#003d7a] uppercase tracking-widest mb-4">Quotations Issuance Log</h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-[#003d7a] text-white">
+                        <th className="p-2 text-left">Quote Number</th>
+                        <th className="p-2 text-left">Customer</th>
+                        <th className="p-2 text-left">Issued At</th>
+                        <th className="p-2 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {issuanceLog.filter(r => r.documentType === 'Quotation').map((rec, idx) => {
+                        const quote = savedQuotations.find(q => (q.quotationCode || q.quoteNumber) === rec.documentNumber);
+                        return (
+                          <tr key={rec.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                            <td className="p-2 font-mono font-bold text-[#003d7a]">{rec.documentNumber}</td>
+                            <td className="p-2">{rec.customerName}</td>
+                            <td className="p-2 text-gray-500">{new Date(rec.issuedAt).toLocaleString()}</td>
+                            <td className="p-2 text-right font-bold text-blue-700">
+                               {quote ? `K ${quote.totalAmount.toLocaleString()}` : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </TabsContent>
         </Tabs>

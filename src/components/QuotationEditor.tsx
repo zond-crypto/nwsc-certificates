@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { PDFPreviewModal, QuotationPreviewDocument } from './PDFPreviewModal';
 import { generateQuotationPdf, exportQuotationCSV } from '../utils/pdfGenerators';
 import { calculateExpiryDate, formatDisplayDate, getExpiryWarningMessage } from '../utils/quotationUtils';
+import { getAvailableTemplates } from '../utils/documentGenerator';
 
 interface Props {
   quotation: Quotation;
@@ -22,6 +23,13 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
   const [newSampleName, setNewSampleName] = useState('');
   const [selectedSign1Id, setSelectedSign1Id] = useState(quotation.sign1SignatureId || '');
   const [selectedSign2Id, setSelectedSign2Id] = useState(quotation.sign2SignatureId || '');
+  const [availableTemplates, setAvailableTemplates] = useState<string[]>([]);
+
+  useEffect(() => {
+    getAvailableTemplates().then(templates => {
+      setAvailableTemplates(templates.quotation);
+    });
+  }, []);
 
   // Calculate expiry warning
   const expiryWarning = quotation.expiryDate ? getExpiryWarningMessage(quotation.expiryDate) : null;
@@ -156,49 +164,42 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
       {/* Header */}
       <div className="bg-gradient-to-br from-[#002050] via-[#003d7a] to-[#004a94] text-white border-b-[3px] border-[#e8b400] print:border-b-2 print:bg-white print:text-black">
-        <div className="flex flex-col sm:flex-row items-center sm:items-stretch">
+        <div className="flex flex-col items-center py-8 px-5">
           {/* Logo block */}
-          <div className="pt-5 pb-3 sm:py-5 px-5 flex items-center justify-center shrink-0">
-            <div className="bg-white rounded-2xl p-2.5 shadow-md print:shadow-none print:rounded-none print:p-0">
-              <img src="/logo.png" alt="Nkana Water and Sanitation Company" className="w-20 h-20 sm:w-[88px] sm:h-[88px] object-contain print:w-16 print:h-16" />
+          <div className="mb-4">
+            <div className="bg-white rounded-3xl p-3 shadow-lg print:shadow-none print:rounded-none print:p-0">
+               <img src="/logo.png" alt="Nkana Water and Sanitation Company" className="w-24 h-24 sm:w-[120px] sm:h-[120px] object-contain print:w-20 print:h-20" />
             </div>
           </div>
 
           {/* Title block */}
-          <div className="flex-1 min-w-0 px-4 sm:px-0 pb-5 sm:py-5 sm:pr-5 text-center sm:text-left flex flex-col justify-center">
-            <h1 className="text-base sm:text-xl md:text-2xl font-black tracking-wider uppercase leading-tight text-white print:text-black">
+          <div className="text-center max-w-4xl">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-[0.2em] uppercase leading-tight text-white print:text-black mb-2">
               NKANA WATER SUPPLY AND SANITATION COMPANY
             </h1>
-            <div className="text-[11px] text-blue-200/80 leading-relaxed mt-1 print:text-gray-700">
+            <div className="text-xs sm:text-sm text-blue-100/90 leading-relaxed print:text-gray-700 font-medium mb-4">
               Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia.<br/>
               Tel: +260 212 222488 / 221099 / 0971 223 458 &nbsp;|&nbsp; Fax: +260 212 222490<br/>
-              <a href="mailto:headoffice@nwsc.com.zm" className="hover:text-white underline print:text-black">headoffice@nwsc.com.zm</a>
-              {" | "}
-              <a href="http://www.nwsc.zm" target="_blank" rel="noreferrer" className="hover:text-white underline print:text-black">www.nwsc.zm</a>
+              <a href="mailto:headoffice@nwsc.com.zm" className="hover:text-white underline print:text-black">headoffice@nwsc.com.zm</a> | <a href="http://www.nwsc.zm" target="_blank" rel="noreferrer" className="hover:text-white underline print:text-black">www.nwsc.zm</a>
             </div>
-            <div className="mt-2.5 flex flex-col sm:flex-row sm:items-center gap-2">
-              <span className="inline-flex items-center self-center sm:self-auto px-2.5 py-1 rounded-md border border-[#e8b400]/60 bg-[#e8b400]/10 text-[#e8b400] text-[10px] font-bold tracking-widest uppercase print:border-gray-400 print:bg-transparent print:text-gray-700">
+            <div className="flex flex-col items-center gap-3">
+              <span className="inline-flex items-center px-4 py-1.5 rounded-full border-2 border-[#e8b400] bg-[#e8b400]/10 text-[#e8b400] text-xs font-black tracking-[0.3em] uppercase print:border-gray-400 print:bg-transparent print:text-gray-700">
                 SHEQ DEPARTMENT
               </span>
-              <span className="text-lg sm:text-xl md:text-2xl font-bold tracking-widest text-white/95 print:text-black">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-[0.1em] text-white print:text-black">
                 SERVICE QUOTATION
-              </span>
+              </h2>
             </div>
           </div>
 
-          {/* Quote no. side column — desktop */}
-          <div className="hidden sm:flex p-5 flex-col items-end justify-center border-l border-white/10 shrink-0 print:border-none print:p-4">
-            <div className="bg-white/10 p-4 rounded-xl border border-white/15 shadow-inner print:bg-transparent print:border-none print:p-0 print:shadow-none min-w-[150px]">
-              <div className="flex flex-col items-end">
-                <div className="text-[10px] tracking-widest text-blue-200/80 uppercase font-semibold mb-0.5 print:text-gray-500">Quote Number</div>
-                <Input
-                  className="bg-transparent border-none text-[#e8b400] text-lg font-bold font-mono text-right w-full outline-none focus:ring-2 focus:ring-[#e8b400]/50 rounded transition-all print:text-black print:placeholder-gray-300"
-                  value={quotation.quoteNumber}
-                  onChange={e => handleMetaChange('quoteNumber', e.target.value)}
-                  placeholder="QT-001"
-                />
-              </div>
-            </div>
+          {/* Floating Quote Info */}
+          <div className="mt-6 bg-white/10 p-3 rounded-xl border border-white/15 backdrop-blur-sm">
+             <div className="flex items-center gap-4">
+                <div className="text-right">
+                   <div className="text-[10px] tracking-widest text-blue-200 uppercase font-black">Quotation No.</div>
+                   <div className="text-[#e8b400] text-xl font-bold font-mono">{quotation.quotationCode || quotation.quoteNumber}</div>
+                </div>
+             </div>
           </div>
         </div>
       </div>
@@ -220,41 +221,43 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
       )}
 
       {/* Meta Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-5 bg-[#f8fbff] border-b divide-x">
+      <div className="grid grid-cols-1 md:grid-cols-6 bg-[#f8fbff] border-b divide-x">
          <div className="p-4">
-            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Client Name</label>
+            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">1. Client Name</label>
             <Input className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] focus:ring-0" value={quotation.client} onChange={e => handleMetaChange('client', e.target.value)} placeholder="Client name" />
          </div>
          <div className="p-4">
-            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Phone</label>
-            <Input className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] focus:ring-0" value={quotation.clientPhone || ''} onChange={e => handleMetaChange('clientPhone', e.target.value)} placeholder="+260 212 222488" />
+            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">2. Contact Number</label>
+            <Input className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] focus:ring-0" value={quotation.clientPhone || ''} onChange={e => handleMetaChange('clientPhone', e.target.value)} placeholder="+260 9xx xxxxxx" />
          </div>
          <div className="p-4">
-            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Email</label>
+            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">3. Email</label>
             <Input className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] focus:ring-0" value={quotation.clientEmail || ''} onChange={e => handleMetaChange('clientEmail', e.target.value)} placeholder="client@email.com" />
          </div>
          <div className="p-4">
-            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Date</label>
+            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">4. Date Issued</label>
             <Input type="date" className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] focus:ring-0" value={quotation.date} onChange={e => handleMetaChange('date', e.target.value)} />
          </div>
          <div className="p-4">
-            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">Valid Until</label>
+            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">5. Valid Until</label>
             <Input type="date" className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-sm font-semibold text-[#003d7a] focus:ring-0" value={quotation.validUntil} onChange={e => handleMetaChange('validUntil', e.target.value)} />
+         </div>
+         <div className="p-4">
+            <label className="text-[10px] font-bold tracking-widest text-gray-500 uppercase">6. Template</label>
+            <Select value={quotation.customTemplate || ''} onValueChange={v => handleMetaChange('customTemplate', v)}>
+               <SelectTrigger className="w-full bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-[11px] font-bold text-[#003d7a] h-auto p-0">
+                  <SelectValue placeholder="System Default" />
+               </SelectTrigger>
+               <SelectContent>
+                  <SelectItem value="">System Default</SelectItem>
+                  {availableTemplates.map(t => (
+                    <SelectItem key={t} value={t}>{t.replace('.html', '')}</SelectItem>
+                  ))}
+               </SelectContent>
+            </Select>
          </div>
       </div>
 
-      {/* Single Sample Section */}
-      <div className="p-6 border-b border-gray-200 bg-white">
-        <div className="flex flex-col gap-2 mb-2">
-          <label className="text-sm font-black text-[#003d7a]">Sample</label>
-          <Input
-            value={quotation.samples?.[0] || ''}
-            onChange={e => updateSample(e.target.value)}
-            placeholder="Enter sample description"
-            className="flex-1"
-          />
-        </div>
-      </div>
 
       {/* Items Table */}
       <div className="p-6">
@@ -347,35 +350,62 @@ export function QuotationEditor({ quotation, setQuotation, onSave, priceList, si
         </div>
       </div>
 
-      {/* Signature Selection */}
-      <div className="p-4 bg-[#f5faff] border-t border-[#003d7a]">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-[#003d7a]">Signatory 1</label>
-            <select value={selectedSign1Id} onChange={e => applySignature('sign1', e.target.value)} className="w-full border rounded px-2 py-1 text-sm">
-              <option value="">(Choose saved signature)</option>
-              {signatures.map(sig => <option key={sig.id} value={sig.id}>{sig.fullName} • {sig.role}{sig.isDefault ? ' (default)' : ''}</option>)}
-            </select>
-            <button className="text-xs text-[#003d7a] underline" onClick={() => applyDefaultSignature('sign1')}>Use default signature</button>
+      {/* Signatures */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 border-t-4 border-[#003d7a] bg-[#f5faff]">
+        <div className="space-y-4">
+          <label className="text-[10px] font-black uppercase tracking-widest text-[#003d7a]">Authorized By (SHEQ MANAGER)</label>
+          <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+             <Select value={selectedSign1Id} onValueChange={v => applySignature('sign1', v)}>
+               <SelectTrigger className="w-full mb-2">
+                 <SelectValue placeholder="Choose Signature..." />
+               </SelectTrigger>
+               <SelectContent>
+                 {signatures.filter(s => s.designatedRole === 'SHEQ MANAGER').map(sig => <SelectItem key={sig.id} value={sig.id}>{sig.fullName}{sig.isDefault ? ' (default)' : ''}</SelectItem>)}
+                 {signatures.filter(s => s.designatedRole === 'OTHER').map(sig => <SelectItem key={sig.id} value={sig.id}>{sig.fullName} (Other)</SelectItem>)}
+               </SelectContent>
+             </Select>
+             <button className="text-[10px] font-bold text-[#003d7a] underline uppercase" onClick={() => applyDefaultSignature('sign1')}>Use default signature</button>
+             
+             <div className="mt-4 text-center">
+               <div className="h-16 flex items-center justify-center mb-2">
+                  {quotation.sign1SignatureImage ? (
+                    <img src={quotation.sign1SignatureImage} alt="Signature" className="max-h-full object-contain" />
+                  ) : (
+                    <div className="text-[10px] text-gray-400 font-bold uppercase italic">Pending Signature</div>
+                  )}
+               </div>
+               <div className="border-t-2 border-[#003d7a] w-48 mx-auto mb-2"></div>
+               <div className="text-sm font-black text-[#003d7a] uppercase mb-1">{quotation.sign1Name || 'Manager Name'}</div>
+               <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">SHEQ MANAGER</div>
+             </div>
           </div>
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-[#003d7a]">Prepared By</label>
-            <select value={selectedSign2Id} onChange={e => applySignature('sign2', e.target.value)} className="w-full border rounded px-2 py-1 text-sm">
-              <option value="">(Choose saved signature)</option>
-              {signatures.map(sig => <option key={sig.id} value={sig.id}>{sig.fullName} • {sig.role}{sig.isDefault ? ' (default)' : ''}</option>)}
-            </select>
-            <div className="flex items-center gap-2">
-              <button className="text-xs text-[#003d7a] underline" onClick={() => applyDefaultSignature('sign2')}>Use default</button>
-            </div>
-            <div className="text-center pt-2">
-              {quotation.sign2SignatureImage ? (
-                <img src={quotation.sign2SignatureImage} alt="Signature" className="h-10 object-contain mx-auto mb-1" />
-              ) : (
-                <div className="h-10 border border-dashed border-gray-300 w-32 mx-auto mb-1 flex items-center justify-center text-xs text-gray-400">No Signature</div>
-              )}
-              <div className="border-t border-black w-48 mx-auto mb-2"></div>
-              <input className="w-full bg-transparent border-none outline-none text-center font-bold text-sm text-[#003d7a] print:text-black" value={quotation.sign2Name} onChange={e => handleMetaChange('sign2Name', e.target.value)} placeholder="Technician Name" />
-            </div>
+        </div>
+
+        <div className="space-y-4">
+          <label className="text-[10px] font-black uppercase tracking-widest text-[#003d7a]">Prepared By (QUALITY ASSURANCE OFFICER)</label>
+          <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+             <Select value={selectedSign2Id} onValueChange={v => applySignature('sign2', v)}>
+               <SelectTrigger className="w-full mb-2">
+                 <SelectValue placeholder="Choose Signature..." />
+               </SelectTrigger>
+               <SelectContent>
+                 {signatures.filter(s => s.designatedRole === 'QUALITY ASSURANCE OFFICER').map(sig => <SelectItem key={sig.id} value={sig.id}>{sig.fullName}{sig.isDefault ? ' (default)' : ''}</SelectItem>)}
+                 {signatures.filter(s => s.designatedRole === 'OTHER').map(sig => <SelectItem key={sig.id} value={sig.id}>{sig.fullName} (Other)</SelectItem>)}
+               </SelectContent>
+             </Select>
+             <button className="text-[10px] font-bold text-[#003d7a] underline uppercase" onClick={() => applyDefaultSignature('sign2')}>Use default signature</button>
+             
+             <div className="mt-4 text-center">
+               <div className="h-16 flex items-center justify-center mb-2">
+                  {quotation.sign2SignatureImage ? (
+                    <img src={quotation.sign2SignatureImage} alt="Signature" className="max-h-full object-contain" />
+                  ) : (
+                    <div className="text-[10px] text-gray-400 font-bold uppercase italic">Pending Signature</div>
+                  )}
+               </div>
+               <div className="border-t-2 border-[#003d7a] w-48 mx-auto mb-2"></div>
+               <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">QUALITY ASSURANCE OFFICER</div>
+             </div>
           </div>
         </div>
       </div>

@@ -10,7 +10,7 @@ interface Props {
   setSignatures: React.Dispatch<React.SetStateAction<Signature[]>>;
 }
 
-const DUMMY = { fullName: '', role: '', imageDataUrl: '' };
+const DUMMY: Partial<Signature> = { fullName: '', role: '', imageDataUrl: '', designatedRole: 'OTHER' };
 
 export function SignatureManager({ signatures, setSignatures }: Props) {
   const [form, setForm] = useState({ ...DUMMY });
@@ -62,7 +62,7 @@ export function SignatureManager({ signatures, setSignatures }: Props) {
   };
 
   const handleSave = async () => {
-    if (!form.fullName.trim() || !form.role.trim()) { setError('Name and role are required.'); return; }
+    if (!form.fullName?.trim() || !form.role?.trim()) { setError('Name and role are required.'); return; }
     if (!form.imageDataUrl) { setError('Signature image is required.'); return; }
     if (validateDupes(form.fullName, form.role, selectedId ?? undefined)) { setError('Duplicate signature (same name+role) is not allowed.'); return; }
 
@@ -70,15 +70,16 @@ export function SignatureManager({ signatures, setSignatures }: Props) {
     try {
       const now = new Date().toISOString();
       if (selectedId) {
-        setSignatures(prev => prev.map(sig => sig.id === selectedId ? { ...sig, fullName: form.fullName.trim(), role: form.role.trim(), imageDataUrl: form.imageDataUrl, dateAdded: sig.dateAdded, lastUsedAt: sig.lastUsedAt } : sig));
+        setSignatures(prev => prev.map(sig => sig.id === selectedId ? { ...sig, fullName: form.fullName!.trim(), role: form.role!.trim(), imageDataUrl: form.imageDataUrl!, designatedRole: form.designatedRole as any, dateAdded: sig.dateAdded, lastUsedAt: sig.lastUsedAt } : sig));
       } else {
         const newSignature: Signature = {
           id: generateSignatureId(),
-          fullName: form.fullName.trim(),
-          role: form.role.trim(),
-          imageDataUrl: form.imageDataUrl,
+          fullName: form.fullName!.trim(),
+          role: form.role!.trim(),
+          imageDataUrl: form.imageDataUrl!,
+          designatedRole: form.designatedRole as any,
           dateAdded: now,
-          isDefault: signatures.length === 0,
+          isDefault: signatures.filter(s => s.designatedRole === form.designatedRole).length === 0,
         };
         setSignatures(prev => [...prev, newSignature]);
       }
@@ -128,7 +129,7 @@ export function SignatureManager({ signatures, setSignatures }: Props) {
     const sig = signatures.find(item => item.id === id);
     if (!sig) return;
     setSelectedId(id);
-    setForm({ fullName: sig.fullName, role: sig.role, imageDataUrl: sig.imageDataUrl });
+    setForm({ fullName: sig.fullName, role: sig.role, imageDataUrl: sig.imageDataUrl, designatedRole: sig.designatedRole || 'OTHER' });
     setMode('upload');
   };
 
@@ -139,7 +140,13 @@ export function SignatureManager({ signatures, setSignatures }: Props) {
   };
 
   const setDefault = (id: string) => {
-    setSignatures(prev => prev.map(sig => ({ ...sig, isDefault: sig.id === id })));
+    const targetSig = signatures.find(s => s.id === id);
+    if (!targetSig) return;
+    setSignatures(prev => prev.map(sig => {
+      if (sig.id === id) return { ...sig, isDefault: true };
+      if (sig.designatedRole === targetSig.designatedRole) return { ...sig, isDefault: false };
+      return sig;
+    }));
   };
 
   return (
@@ -149,9 +156,18 @@ export function SignatureManager({ signatures, setSignatures }: Props) {
         <span className="text-xs text-gray-500">{signatures.length} stored</span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
         <Input placeholder="Full Name" value={form.fullName} onChange={e => setForm(prev => ({ ...prev, fullName: e.target.value }))} />
         <Input placeholder="Role / Title" value={form.role} onChange={e => setForm(prev => ({ ...prev, role: e.target.value }))} />
+        <select 
+          className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          value={form.designatedRole} 
+          onChange={e => setForm(prev => ({ ...prev, designatedRole: e.target.value as any }))}
+        >
+          <option value="OTHER">Other Role</option>
+          <option value="SHEQ MANAGER">SHEQ Manager</option>
+          <option value="QUALITY ASSURANCE OFFICER">QA Officer</option>
+        </select>
         <div className="flex items-center gap-2">
           <button className={`px-2 py-1 rounded ${mode === 'upload' ? 'bg-[#003d7a] text-white' : 'bg-gray-100 text-gray-700'}`} onClick={() => setMode('upload')}>Upload</button>
           <button className={`px-2 py-1 rounded ${mode === 'draw' ? 'bg-[#003d7a] text-white' : 'bg-gray-100 text-gray-700'}`} onClick={() => setMode('draw')}>Draw</button>
@@ -211,6 +227,7 @@ export function SignatureManager({ signatures, setSignatures }: Props) {
                     {sig.isDefault && <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded">Default</span>}
                   </div>
                   <p className="text-xs text-gray-600">{sig.role}</p>
+                  <p className="text-[10px] font-semibold text-[#003d7a]">{sig.designatedRole !== 'OTHER' ? sig.designatedRole : ''}</p>
                   <p className="text-[10px] text-gray-500">Added {new Date(sig.dateAdded).toLocaleDateString()}</p>
                   <div className="mt-1 flex gap-1">
                     <Button size="xs" variant="outline" onClick={() => onEdit(sig.id)}><Edit3 className="w-3.5 h-3.5" /> Edit</Button>

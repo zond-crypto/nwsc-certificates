@@ -17,7 +17,7 @@ export async function generateCOAPdf(certificate: Certificate): Promise<void> {
   );
 
   // Step 2: Generate & download the PDF.
-  await generateCOAPdfTemplate(certificate);
+  await generateCOAPdfTemplate(certificate, certificate.customTemplate);
 }
 
 /**
@@ -34,7 +34,7 @@ export async function generateQuotationPdf(quotation: Quotation): Promise<void> 
   );
 
   // Step 2: Generate & download the PDF.
-  await generateQuotationPdfTemplate(quotation);
+  await generateQuotationPdfTemplate(quotation, quotation.customTemplate);
 }
 
 export function exportCOACSV(certificate: Certificate): void {

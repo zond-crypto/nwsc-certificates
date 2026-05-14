@@ -29,22 +29,23 @@ const CONFIG = {
  * @param {Date|null} issueDate - The quotation's issue date. Defaults to today.
  * @returns {Promise<string>} The new unique code, e.g. "QT-202504-0006"
  */
-export async function generateQuotationCode(getLastSequenceForMonth, issueDate = null) {
+export async function generateQuotationCode(getLastSequenceForYear, issueDate = null) {
     const date = issueDate instanceof Date ? issueDate : new Date();
 
     const year  = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
-    const yearMonth = `${year}${month}`;  // e.g. "202504"
+    const day   = String(date.getDate()).padStart(2, '0');
+    const ymd   = `${year}${month}${day}`;
 
-    // Get the last used sequence number for this month from your database
-    const lastSequence = await getLastSequenceForMonth(yearMonth);
+    // Get the last used sequence number for this year from your database
+    const lastSequence = await getLastSequenceForYear(String(year));
 
     // Increment and zero-pad
     const nextSequence = lastSequence + 1;
     const paddedSequence = String(nextSequence).padStart(CONFIG.SEQUENCE_PAD, '0');
 
-    return `${CONFIG.CODE_PREFIX}-${yearMonth}-${paddedSequence}`;
-    // Example output: "QT-202504-0007"
+    return `${CONFIG.CODE_PREFIX}-${ymd}-${paddedSequence}`;
+    // Example output: "QT-20260511-0001"
 }
 
 /**
@@ -130,13 +131,13 @@ export function getExpiryWarningMessage(expiryDate) {
  *   const enriched = await prepareNewQuotation(formData, dbQueryFn);
  *   await db.saveQuotation(enriched);
  */
-export async function prepareNewQuotation(quotationData, getLastSequenceForMonth) {
+export async function prepareNewQuotation(quotationData, getLastSequenceForYear) {
     const issueDate  = quotationData.date
         ? new Date(quotationData.date)
         : new Date();
 
     const expiryDate = calculateExpiryDate(issueDate);
-    const code       = await generateQuotationCode(getLastSequenceForMonth, issueDate);
+    const code       = await generateQuotationCode(getLastSequenceForYear, issueDate);
 
     return {
         ...quotationData,                                   // Keep all existing fields untouched

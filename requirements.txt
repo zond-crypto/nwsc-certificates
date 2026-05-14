@@ -6,3 +6,7 @@ pillow>=10.0.0      # Image decoding required by reportlab's ImageReader
 flask>=3.0.0        # Web framework for backend
 flask-compress>=1.14 # Response compression
 pypdf>=3.17.0       # PDF validation and metadata checking
+docxtpl>=0.16.0     # Word document templating (Jinja2 for .docx)
+docx2pdf>=0.1.8     # Convert .docx to .pdf (requires Word installed)
+python-docx>=1.1.0  # Core docx manipulation
+pywin32>=306        # Required for docx2pdf on Windows

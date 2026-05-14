@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { NkanaLogo } from './Logo';
 import { CertificatePreviewDocument, PDFPreviewModal } from './PDFPreviewModal';
 import { generateCOAPdf, exportCOACSV } from '../utils/pdfGenerators';
+import { getAvailableTemplates } from '../utils/documentGenerator';
 
 interface Props {
   certificate: Certificate;
@@ -15,17 +16,23 @@ interface Props {
   onSave: () => void;
   regLimits: RegulatoryLimit[];
   signatures: Signature[];
+  quotations: Quotation[];
 }
 
-
-
-export function CertificateEditor({ certificate, setCertificate, onSave, regLimits, signatures }: Props) {
+export function CertificateEditor({ certificate, setCertificate, onSave, regLimits, signatures, quotations }: Props) {
   const [rowToDelete, setRowToDelete] = useState<number | null>(null);
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [newSampleName, setNewSampleName] = useState('');
   const [selectedSign1Id, setSelectedSign1Id] = useState(certificate.sign1SignatureId || '');
   const [selectedSign2Id, setSelectedSign2Id] = useState(certificate.sign2SignatureId || '');
+  const [availableTemplates, setAvailableTemplates] = useState<string[]>([]);
+
+  useEffect(() => {
+    getAvailableTemplates().then(templates => {
+      setAvailableTemplates(templates.coa);
+    });
+  }, []);
 
   const printMeasureRef = useRef<HTMLDivElement>(null);
   const [printPages, setPrintPages] = useState<Array<Array<{ row: Parameter | { section: string }; idx: number }>>>([]);
@@ -250,6 +257,29 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
     setCertificate(prev => ({ ...prev, [field]: value }));
   }, [setCertificate]);
 
+  const handleLinkQuotation = (quoteId: string) => {
+    const quote = quotations.find(q => q.id === quoteId);
+    if (!quote) return;
+
+    // Auto-populate based on quotation
+    setCertificate(prev => ({
+      ...prev,
+      client: quote.client,
+      clientPhone: quote.clientPhone,
+      clientEmail: quote.clientEmail,
+      linkedQuotationId: quote.id,
+      certNumber: (quote.quotationCode || quote.quoteNumber).replace('QT-', 'COA-'),
+      tableData: quote.items.map(item => ({
+        id: `param-${Date.now()}-${Math.random()}`,
+        name: item.parameterName,
+        unit: '', // Will be filled by auto-apply limits or manually
+        limit: '',
+        results: new Array(prev.samples.length).fill('')
+      }))
+    }));
+    toast.info(`Linked to Quotation ${quote.quotationCode || quote.quoteNumber}`);
+  };
+
   // ── PDF Generation ────────────────────────────────────────────────────
   const downloadPDF = useCallback(async () => {
     try {
@@ -370,70 +400,83 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
 
       {/* Header */}
       <div className="bg-gradient-to-br from-[#002050] via-[#003d7a] to-[#004a94] text-white border-b-[3px] border-[#e8b400] print:border-b-2 print:bg-white print:text-black">
-        <div className="flex flex-col sm:flex-row items-center sm:items-stretch">
+        <div className="flex flex-col items-center py-8 px-5">
           {/* Logo block */}
-          <div className="pt-5 pb-3 sm:py-5 px-5 flex items-center justify-center shrink-0">
-            <div className="bg-white rounded-2xl p-2.5 shadow-md print:shadow-none print:rounded-none print:p-0">
-              <NkanaLogo className="w-20 h-20 sm:w-[88px] sm:h-[88px] object-contain print:w-16 print:h-16" />
+          <div className="mb-4">
+            <div className="bg-white rounded-3xl p-3 shadow-lg print:shadow-none print:rounded-none print:p-0">
+              <NkanaLogo className="w-24 h-24 sm:w-[120px] sm:h-[120px] object-contain print:w-20 print:h-20" />
             </div>
           </div>
 
           {/* Title block */}
-          <div className="flex-1 min-w-0 px-4 sm:px-0 pb-5 sm:py-5 sm:pr-5 text-center sm:text-left flex flex-col justify-center">
-            <h1 className="text-base sm:text-xl md:text-2xl font-black tracking-wider uppercase leading-tight text-white print:text-black">
+          <div className="text-center max-w-4xl">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-[0.2em] uppercase leading-tight text-white print:text-black mb-2">
               NKANA WATER SUPPLY AND SANITATION COMPANY
             </h1>
-            <div className="text-[11px] text-blue-200/80 leading-relaxed mt-1 print:text-gray-700">
+            <div className="text-xs sm:text-sm text-blue-100/90 leading-relaxed print:text-gray-700 font-medium mb-4">
               Mutondo Crescent, off Freedom Way, Riverside, Box 20982 Kitwe, Zambia.<br/>
               Tel: +260 212 222488 / 221099 / 0971 223 458 &nbsp;|&nbsp; Fax: +260 212 222490<br/>
-              <a href="mailto:headoffice@nwsc.com.zm" className="hover:text-white underline print:text-black">headoffice@nwsc.com.zm</a>
-              {" | "}
-              <a href="http://www.nwsc.zm" target="_blank" rel="noreferrer" className="hover:text-white underline print:text-black">www.nwsc.zm</a>
+              <a href="mailto:headoffice@nwsc.com.zm" className="hover:text-white underline print:text-black">headoffice@nwsc.com.zm</a> | <a href="http://www.nwsc.zm" target="_blank" rel="noreferrer" className="hover:text-white underline print:text-black">www.nwsc.zm</a>
             </div>
-            <div className="mt-2.5 flex flex-col sm:flex-row sm:items-center gap-2">
-              <span className="inline-flex items-center self-center sm:self-auto px-2.5 py-1 rounded-md border border-[#e8b400]/60 bg-[#e8b400]/10 text-[#e8b400] text-[10px] font-bold tracking-widest uppercase print:border-gray-400 print:bg-transparent print:text-gray-700">
+            <div className="flex flex-col items-center gap-3">
+              <span className="inline-flex items-center px-4 py-1.5 rounded-full border-2 border-[#e8b400] bg-[#e8b400]/10 text-[#e8b400] text-xs font-black tracking-[0.3em] uppercase print:border-gray-400 print:bg-transparent print:text-gray-700">
                 SHEQ DEPARTMENT
               </span>
-              <span className="text-lg sm:text-xl md:text-2xl font-bold tracking-widest text-white/95 print:text-black">
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-[0.1em] text-white print:text-black">
                 WATER ANALYSIS CERTIFICATE
-              </span>
+              </h2>
             </div>
           </div>
         </div>
       </div>
 
       {/* Certificate Details */}
-      <div className="p-4 bg-gray-50 border-b border-gray-200 print:bg-white">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-[#003d7a] mb-1">Certificate No</label>
-            <Input
-              value={certificate.certNumber}
-              onChange={e => handleMetaChange('certNumber', e.target.value)}
-              className="text-sm"
-            />
+      <div className="p-6 bg-blue-50/30 border-b border-gray-200 print:bg-white">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-1">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-[#003d7a] mb-2">Linked Quotation</label>
+            <Select value={certificate.linkedQuotationId || ''} onValueChange={handleLinkQuotation}>
+              <SelectTrigger className="bg-white border-blue-200 text-sm font-semibold">
+                <SelectValue placeholder="Select Quotation..." />
+              </SelectTrigger>
+              <SelectContent>
+                {quotations.map(q => (
+                  <SelectItem key={q.id} value={q.id}>{q.quotationCode || q.quoteNumber} - {q.client}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
-            <label className="block text-xs font-bold text-[#003d7a] mb-1">Client</label>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-[#003d7a] mb-2">1. Client Name</label>
             <Input
               value={certificate.client}
               onChange={e => handleMetaChange('client', e.target.value)}
-              className="text-sm"
+              className="bg-white border-blue-200 text-sm font-bold"
+              placeholder="Auto-populated"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-[#003d7a] mb-1">Date</label>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-[#003d7a] mb-2">2. Date Sampled</label>
+            <Input
+              type="date"
+              value={certificate.dateSampled}
+              onChange={e => handleMetaChange('dateSampled', e.target.value)}
+              className="bg-white border-blue-200 text-sm font-bold"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-[#003d7a] mb-2">3. Date Reported</label>
             <Input
               type="date"
               value={certificate.dateReported}
               onChange={e => handleMetaChange('dateReported', e.target.value)}
-              className="text-sm"
+              className="bg-white border-blue-200 text-sm font-bold"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-[#003d7a] mb-1">Sample Type</label>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-[#003d7a] mb-2">4. Sample Type</label>
             <Select value={certificate.sampleType} onValueChange={value => handleMetaChange('sampleType', value)}>
-              <SelectTrigger className="text-sm">
+              <SelectTrigger className="bg-white border-blue-200 text-sm font-bold">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -445,36 +488,27 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
               </SelectContent>
             </Select>
           </div>
-          <div className="md:col-span-2">
-            <label className="block text-xs font-bold text-[#003d7a] mb-1">Sample Source</label>
-            <Input
-              value={certificate.location}
-              onChange={e => handleMetaChange('location', e.target.value)}
-              className="text-sm"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-xs font-bold text-[#003d7a] mb-2">Samples</label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {certificate.samples.map((sample, idx) => (
-                <span key={idx} className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#e8f1ff] text-xs font-semibold text-[#003d7a]">
-                  {sample}
-                  <button onClick={() => removeSample(idx)} className="text-[#003d7a] hover:text-red-500" aria-label={`Remove sample ${sample}`}>
-                    ×
-                  </button>
+          <div className="lg:col-span-3 flex items-center justify-between bg-[#003d7a]/5 p-3 rounded-xl border border-[#003d7a]/10">
+             <div className="flex items-center gap-4">
+                <span className="text-[10px] font-black text-[#003d7a] uppercase">Certificate No:</span>
+                <span className="font-mono font-black text-blue-700 text-lg tracking-tighter">
+                   {certificate.certNumber}
                 </span>
-              ))}
-              {certificate.samples.length === 0 && <span className="text-xs text-gray-500">No samples yet.</span>}
-            </div>
-            <div className="flex gap-2">
-              <Input
-                value={newSampleName}
-                onChange={e => setNewSampleName(e.target.value)}
-                placeholder="Add sample name"
-                className="text-sm"
-              />
-              <Button onClick={addSample} size="sm" className="h-8 px-2 text-xs">Add</Button>
-            </div>
+             </div>
+             <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black text-[#003d7a] uppercase">Template:</span>
+                <Select value={certificate.customTemplate || ''} onValueChange={v => handleMetaChange('customTemplate', v)}>
+                   <SelectTrigger className="h-8 min-w-[140px] bg-white border-blue-100 text-xs font-semibold">
+                      <SelectValue placeholder="System Default" />
+                   </SelectTrigger>
+                   <SelectContent>
+                      <SelectItem value="">System Default</SelectItem>
+                      {availableTemplates.map(t => (
+                        <SelectItem key={t} value={t}>{t.replace('.html', '')}</SelectItem>
+                      ))}
+                   </SelectContent>
+                </Select>
+             </div>
           </div>
         </div>
       </div>
@@ -564,6 +598,7 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
                       updateRow={updateRow}
                       updateResult={updateResult}
                       confirmRemoveRow={confirmRemoveRow}
+                      regLimits={regLimits}
                     />
                   );
                 });
@@ -597,42 +632,61 @@ export function CertificateEditor({ certificate, setCertificate, onSave, regLimi
       </div>
 
       {/* Signatures */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-4 border-t-2 border-[#003d7a] print:border-t-2 bg-[#f5faff]">
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-[#003d7a]">Signatory 1 (Authorized By)</label>
-          <select value={selectedSign1Id} onChange={e => applySignature('sign1', e.target.value)} className="w-full border rounded px-2 py-1 text-sm">
-            <option value="">(Choose saved signature)</option>
-            {signatures.map(sig => <option key={sig.id} value={sig.id}>{sig.fullName} • {sig.role}{sig.isDefault ? ' (default)' : ''}</option>)}
-          </select>
-          <div className="flex items-center gap-2">
-            <button className="text-xs text-[#003d7a] underline" onClick={() => applyDefaultSignature('sign1')}>Use default</button>
-            <span className="text-xs text-gray-500">or edit below</span>
-          </div>
-          <div className="text-center">
-            <div className="border-t border-black w-48 mx-auto mt-2 mb-2"></div>
-            <input className="w-full bg-transparent border-none outline-none text-center font-bold text-sm text-[#003d7a] print:text-black" value={certificate.sign1Name} onChange={e => handleMetaChange('sign1Name', e.target.value)} placeholder="Name" />
-            <input className="w-full bg-transparent border-none outline-none text-center text-xs text-gray-500 print:text-black mt-1" value={certificate.sign1Title} onChange={e => handleMetaChange('sign1Title', e.target.value)} placeholder="Title" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 border-t-4 border-[#003d7a] bg-[#f5faff]">
+        <div className="space-y-4">
+          <label className="text-[10px] font-black uppercase tracking-widest text-[#003d7a]">Authorized By (SHEQ MANAGER)</label>
+          <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+             <Select value={selectedSign1Id} onValueChange={v => applySignature('sign1', v)}>
+               <SelectTrigger className="w-full mb-2">
+                 <SelectValue placeholder="Choose Signature..." />
+               </SelectTrigger>
+               <SelectContent>
+                 {signatures.filter(s => s.designatedRole === 'SHEQ MANAGER').map(sig => <SelectItem key={sig.id} value={sig.id}>{sig.fullName}{sig.isDefault ? ' (default)' : ''}</SelectItem>)}
+                 {signatures.filter(s => s.designatedRole === 'OTHER').map(sig => <SelectItem key={sig.id} value={sig.id}>{sig.fullName} (Other)</SelectItem>)}
+               </SelectContent>
+             </Select>
+             <button className="text-[10px] font-bold text-[#003d7a] underline uppercase" onClick={() => applyDefaultSignature('sign1')}>Use default signature</button>
+             
+             <div className="mt-4 text-center">
+               <div className="h-16 flex items-center justify-center mb-2">
+                  {certificate.sign1SignatureImage ? (
+                    <img src={certificate.sign1SignatureImage} alt="Signature" className="max-h-full object-contain" />
+                  ) : (
+                    <div className="text-[10px] text-gray-400 font-bold uppercase italic">Pending Signature</div>
+                  )}
+               </div>
+               <div className="border-t-2 border-[#003d7a] w-48 mx-auto mb-2"></div>
+               <div className="text-sm font-black text-[#003d7a] uppercase mb-1">{certificate.sign1Name || 'Manager Name'}</div>
+               <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">SHEQ MANAGER</div>
+             </div>
           </div>
         </div>
 
-        <div className="space-y-2">
-          <label className="text-xs font-bold text-[#003d7a]">Prepared By</label>
-          <select value={selectedSign2Id} onChange={e => applySignature('sign2', e.target.value)} className="w-full border rounded px-2 py-1 text-sm">
-            <option value="">(Choose saved signature)</option>
-            {signatures.map(sig => <option key={sig.id} value={sig.id}>{sig.fullName} • {sig.role}{sig.isDefault ? ' (default)' : ''}</option>)}
-          </select>
-          <div className="flex items-center gap-2">
-            <button className="text-xs text-[#003d7a] underline" onClick={() => applyDefaultSignature('sign2')}>Use default</button>
-            <span className="text-xs text-gray-500">or edit below</span>
-          </div>
-          <div className="text-center pt-2">
-            {certificate.sign2SignatureImage ? (
-              <img src={certificate.sign2SignatureImage} alt="Signature" className="h-10 object-contain mx-auto mb-1" />
-            ) : (
-              <div className="h-10 border border-dashed border-gray-300 w-32 mx-auto mb-1 flex items-center justify-center text-xs text-gray-400">No Signature</div>
-            )}
-            <div className="border-t border-black w-48 mx-auto mb-2"></div>
-            <input className="w-full bg-transparent border-none outline-none text-center font-bold text-sm text-[#003d7a] print:text-black" value={certificate.sign2Name} onChange={e => handleMetaChange('sign2Name', e.target.value)} placeholder="Technician Name" />
+        <div className="space-y-4">
+          <label className="text-[10px] font-black uppercase tracking-widest text-[#003d7a]">Prepared By (QUALITY ASSURANCE OFFICER)</label>
+          <div className="bg-white p-4 rounded-xl border border-blue-100 shadow-sm">
+             <Select value={selectedSign2Id} onValueChange={v => applySignature('sign2', v)}>
+               <SelectTrigger className="w-full mb-2">
+                 <SelectValue placeholder="Choose Signature..." />
+               </SelectTrigger>
+               <SelectContent>
+                 {signatures.filter(s => s.designatedRole === 'QUALITY ASSURANCE OFFICER').map(sig => <SelectItem key={sig.id} value={sig.id}>{sig.fullName}{sig.isDefault ? ' (default)' : ''}</SelectItem>)}
+                 {signatures.filter(s => s.designatedRole === 'OTHER').map(sig => <SelectItem key={sig.id} value={sig.id}>{sig.fullName} (Other)</SelectItem>)}
+               </SelectContent>
+             </Select>
+             <button className="text-[10px] font-bold text-[#003d7a] underline uppercase" onClick={() => applyDefaultSignature('sign2')}>Use default signature</button>
+             
+             <div className="mt-4 text-center">
+               <div className="h-16 flex items-center justify-center mb-2">
+                  {certificate.sign2SignatureImage ? (
+                    <img src={certificate.sign2SignatureImage} alt="Signature" className="max-h-full object-contain" />
+                  ) : (
+                    <div className="text-[10px] text-gray-400 font-bold uppercase italic">Pending Signature</div>
+                  )}
+               </div>
+               <div className="border-t-2 border-[#003d7a] w-48 mx-auto mb-2"></div>
+               <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">QUALITY ASSURANCE OFFICER</div>
+             </div>
           </div>
         </div>
       </div>
@@ -854,6 +908,7 @@ const ParameterRow = memo(({ row, idx, rowNum, sampleCount, updateRow, updateRes
   updateRow: (rowIdx: number, field: keyof Parameter, value: string) => void;
   updateResult: (rowIdx: number, sampleIdx: number, value: string) => void;
   confirmRemoveRow: (idx: number) => void;
+  regLimits: RegulatoryLimit[];
 }) => {
   return (
     <tr className="hover:bg-gray-50 print:bg-white">
@@ -861,12 +916,33 @@ const ParameterRow = memo(({ row, idx, rowNum, sampleCount, updateRow, updateRes
         {rowNum}
       </td>
       <td className="sticky print:static left-8 z-10 print:z-auto bg-white print:bg-transparent p-1.5 border-b border-r border-gray-200 print:border-gray-300">
-        <Input
+        <select
           value={row.name || ''}
-          onChange={e => updateRow(idx, 'name', e.target.value)}
-          className="text-[10px] print:text-[8px] h-6 px-1 border-none bg-transparent focus:bg-white focus:ring-1 focus:ring-[#003d7a]/20"
-          placeholder="Parameter name"
-        />
+          onChange={e => {
+            const val = e.target.value;
+            const limit = regLimits.find(l => l.parameterName === val);
+            updateRow(idx, 'name', val);
+            if (limit) {
+              updateRow(idx, 'unit', limit.unit);
+              updateRow(idx, 'limit', limit.limitValue);
+            }
+          }}
+          className="w-full text-[10px] print:text-[8px] h-6 px-1 border-none bg-transparent focus:bg-white focus:ring-1 focus:ring-[#003d7a]/20 font-bold"
+        >
+          <option value="">Select Parameter...</option>
+          {regLimits.map(l => (
+            <option key={l.id} value={l.parameterName}>{l.parameterName}</option>
+          ))}
+          <option value="Custom">Custom...</option>
+        </select>
+        {row.name === 'Custom' && (
+          <Input
+            value={''}
+            onChange={e => updateRow(idx, 'name', e.target.value)}
+            className="mt-1 text-[10px] h-6"
+            placeholder="Type custom name"
+          />
+        )}
       </td>
       <td className="sticky print:static left-[182px] z-10 print:z-auto bg-white print:bg-transparent p-1.5 border-b border-r border-gray-200 print:border-gray-300">
         <Input
