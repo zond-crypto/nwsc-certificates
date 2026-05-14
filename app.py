@@ -143,6 +143,10 @@ def generate_from_docx():
         # 3. Attempt conversion to PDF if requested and on Windows
         if filename.endswith('.pdf'):
             try:
+                import sys
+                if sys.platform != 'win32':
+                    raise ImportError("PDF conversion via Word is only supported on Windows.")
+                    
                 from docx2pdf import convert
                 import pythoncom
                 
