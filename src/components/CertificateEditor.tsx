@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, memo } from 'react';
-import { Certificate, Parameter, RegulatoryLimit, Signature } from '../types';
+import { Certificate, Parameter, RegulatoryLimit, Signature, Quotation } from '../types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
